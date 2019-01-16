@@ -1,0 +1,73 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: kconfigs.kconfigcontroller.atteg.com
+spec:
+  group: kconfigcontroller.atteg.com
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    plural: kconfigs
+    singular: kconfig
+    kind: Kconfig
+    shortNames:
+    - kc
+  validation:
+    openAPIV3Schema:
+      required: ["spec"]
+      properties:
+        spec:
+          required: ["level"]
+          properties:
+            level:
+              type: integer
+              minimum: 1
+              maximum: 99
+            envConfigs:
+              type: array
+              items:
+                properties:
+                  key:
+                    type: string
+                    pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
+                  value:
+                    type: string
+                  type:
+                    type: string
+                    enum:
+                    - ""
+                    - "Value"
+                    - "ConfigMap"
+                    - "Secret"
+                  action:
+                    properties:
+                      actionType:
+                        type: string
+                        enum:
+                        - "Add"
+                        - "Update"
+                        - "Delete"
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: kconfigbindings.kconfigcontroller.atteg.com
+spec:
+  group: kconfigcontroller.atteg.com
+  names:
+    kind: KconfigBinding
+    listKind: KconfigBindingList
+    plural: kconfigbindings
+    shortNames:
+    - kcb
+    singular: kconfigbinding
+  scope: Namespaced
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

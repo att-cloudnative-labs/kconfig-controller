@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kube-system
+  name: kconfig-controller-manager
+spec:
+  selector:
+    matchLabels:
+      app: kconfig-controller-manager
+  template:
+    metadata:
+      labels:
+        app: kconfig-controller-manager
+    spec:
+      containers:
+      - name: kconfig-controller-manager
+        args:
+        - --logtostderr=true
+        - -v=5
+        image: docker-registry.aeg.cloud/common-system/kconfig-controller:local-201901061200
+        resources:
+          requests:
+            memory: 2Gi
+            cpu: 2
+          limits:
+            memory: 2Gi
+            cpu: 2
+      serviceAccountName: kconfig-controller-manager
