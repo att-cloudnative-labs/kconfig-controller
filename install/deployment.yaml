@@ -17,7 +17,7 @@ spec:
         args:
         - --logtostderr=true
         - -v=5
-        image: docker-registry.aeg.cloud/common-system/kconfig-controller:local-201901061200
+        image: docker-registry.aeg.cloud/common-system/kconfig-controller:v0.2.0-alpha-1
         resources:
           requests:
             memory: 2Gi

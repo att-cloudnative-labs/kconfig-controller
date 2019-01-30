@@ -30,22 +30,24 @@ func Kconfig() v1alpha1.Kconfig {
 
 // ValueKconfig returns Kconfig with single value envConfig
 func ValueKconfig() v1alpha1.Kconfig {
+	defaultValue := DefaultValue
 	kconfig := Kconfig()
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
 		Type:  ValueType,
 		Key:   DefaultKey,
-		Value: DefaultValue,
+		Value: &defaultValue,
 	})
 	return kconfig
 }
 
 // NewValueKconfig returns Kconfig with single value envConfig
 func NewValueKconfig() v1alpha1.Kconfig {
+	defaultNewValue := DefaultNewValue
 	kconfig := Kconfig()
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
 		Type:  ValueType,
 		Key:   DefaultKey,
-		Value: DefaultNewValue,
+		Value: &defaultNewValue,
 	})
 	return kconfig
 }
@@ -68,31 +70,27 @@ func ConfigMapKconfig() v1alpha1.Kconfig {
 
 // AddConfigMapKconfig returns Kconfig with Add action and ConfigMap type
 func AddConfigMapKconfig() v1alpha1.Kconfig {
+	defaultValue := DefaultValue
+	defaultConfigMapName := DefaultConfigMapName
 	kconfig := Kconfig()
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
-		Type:  ConfigMapType,
-		Key:   DefaultKey,
-		Value: DefaultValue,
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType:   AddAction,
-			ResourceName: DefaultConfigMapName,
-		},
+		Type:    ConfigMapType,
+		Key:     DefaultKey,
+		Value:   &defaultValue,
+		RefName: &defaultConfigMapName,
 	})
 	return kconfig
 }
 
 // UpdateConfigMapKconfig returns Kconfig with Update action and ConfigMap type
 func UpdateConfigMapKconfig() v1alpha1.Kconfig {
+	defaultNewValue := DefaultNewValue
 	kconfig := Kconfig()
 	optional := true
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
 		Type:  ConfigMapType,
 		Key:   DefaultKey,
-		Value: DefaultNewValue,
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType:   UpdateAction,
-			ResourceName: DefaultConfigMapName,
-		},
+		Value: &defaultNewValue,
 		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{Name: DefaultConfigMapName},
 			Key:                  DefaultReferenceKey,
@@ -102,23 +100,9 @@ func UpdateConfigMapKconfig() v1alpha1.Kconfig {
 	return kconfig
 }
 
-// DeleteConfigMapKconfig returns Kconfig with Delete action and ConfigMap type
+// DeleteConfigMapKconfig returns empty Kconfig. Holdover from when Kconfigs had embedded actions.
 func DeleteConfigMapKconfig() v1alpha1.Kconfig {
 	kconfig := Kconfig()
-	optional := true
-	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
-		Type: ConfigMapType,
-		Key:  DefaultKey,
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType:   DeleteAction,
-			ResourceName: DefaultConfigMapName,
-		},
-		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: DefaultConfigMapName},
-			Key:                  DefaultReferenceKey,
-			Optional:             &optional,
-		},
-	})
 	return kconfig
 }
 
@@ -140,31 +124,27 @@ func SecretKconfig() v1alpha1.Kconfig {
 
 // AddSecretKconfig returns Kconfig with Add action and Secret type
 func AddSecretKconfig() v1alpha1.Kconfig {
+	defaultValue := DefaultValue
+	defaultSecretName := DefaultSecretName
 	kconfig := Kconfig()
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
-		Type:  SecretType,
-		Key:   DefaultKey,
-		Value: DefaultValue,
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType:   AddAction,
-			ResourceName: DefaultSecretName,
-		},
+		Type:    SecretType,
+		Key:     DefaultKey,
+		Value:   &defaultValue,
+		RefName: &defaultSecretName,
 	})
 	return kconfig
 }
 
 // UpdateSecretKconfig returns Kconfig with Update action and Secret type
 func UpdateSecretKconfig() v1alpha1.Kconfig {
+	defaultNewValue := DefaultNewValue
 	kconfig := Kconfig()
 	optional := true
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
 		Type:  SecretType,
 		Key:   DefaultKey,
-		Value: DefaultNewValue,
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType:   UpdateAction,
-			ResourceName: DefaultSecretName,
-		},
+		Value: &defaultNewValue,
 		SecretKeyRef: &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{Name: DefaultSecretName},
 			Key:                  DefaultReferenceKey,
@@ -174,22 +154,8 @@ func UpdateSecretKconfig() v1alpha1.Kconfig {
 	return kconfig
 }
 
-// DeleteSecretKconfig returns Kconfig with Delete action and Secret type
+// DeleteSecretKconfig returns empty Kconfig. Holdover from when Kconfigs had embedded actions.
 func DeleteSecretKconfig() v1alpha1.Kconfig {
 	kconfig := Kconfig()
-	optional := true
-	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
-		Type: SecretType,
-		Key:  DefaultKey,
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType:   DeleteAction,
-			ResourceName: DefaultSecretName,
-		},
-		SecretKeyRef: &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: DefaultSecretName},
-			Key:                  DefaultReferenceKey,
-			Optional:             &optional,
-		},
-	})
 	return kconfig
 }
