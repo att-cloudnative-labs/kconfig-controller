@@ -337,7 +337,6 @@ func TestSecretKconfig(t *testing.T) {
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
 }
-
 func TestAddConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
@@ -535,7 +534,6 @@ func TestDeleteConfigMapKconfig(t *testing.T) {
 	kc := testutil.DeleteConfigMapKconfig()
 	kcb := testutil.ConfigMapKconfigBinding()
 	cm := testutil.ConfigMapWithData()
-	expectedkcupdate := testutil.Kconfig()
 	expectedkcbupdate := testutil.EmptyKconfigEnvsKconfigBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
@@ -545,7 +543,6 @@ func TestDeleteConfigMapKconfig(t *testing.T) {
 	f.kcobjects = append(f.kcobjects, &kcb)
 	f.stdobjects = append(f.stdobjects, &cm)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
 	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
@@ -558,7 +555,6 @@ func TestDeleteSecretKconfig(t *testing.T) {
 	kc := testutil.DeleteSecretKconfig()
 	kcb := testutil.SecretKconfigBinding()
 	secret := testutil.SecretWithData()
-	expectedkcupdate := testutil.Kconfig()
 	expectedkcbupdate := testutil.EmptyKconfigEnvsKconfigBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
@@ -568,7 +564,6 @@ func TestDeleteSecretKconfig(t *testing.T) {
 	f.kcobjects = append(f.kcobjects, &kcb)
 	f.stdobjects = append(f.stdobjects, &secret)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
 	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)

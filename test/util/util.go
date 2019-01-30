@@ -92,17 +92,19 @@ func GetTestSecretKeySelector1() corev1.SecretKeySelector {
 
 // GetTestEnvConfig1 returns test envconfig
 func GetTestEnvConfig1() v1alpha1.EnvConfig {
+	testValue1 := TestValue1
 	return v1alpha1.EnvConfig{
 		Key:   TestKey1,
-		Value: TestValue1,
+		Value: &testValue1,
 	}
 }
 
 // GetTestEnvConfig2 returns test envconfig
 func GetTestEnvConfig2() v1alpha1.EnvConfig {
+	testValue2 := TestValue2
 	return v1alpha1.EnvConfig{
 		Key:   TestKey2,
-		Value: TestValue2,
+		Value: &testValue2,
 	}
 }
 
@@ -136,25 +138,21 @@ func GetTestSecretKeyRef1() corev1.SecretKeySelector {
 
 // GetTestAddSecretEnvConfig1 returns test secret envconfig
 func GetTestAddSecretEnvConfig1() v1alpha1.EnvConfig {
+	testSecretValue1 := TestSecretValue1
+	testSecretName := "testsecret"
 	return v1alpha1.EnvConfig{
-		Key:   TestSecretKey1,
-		Value: TestSecretValue1,
-		Type:  "Secret",
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType:   "Add",
-			ResourceName: "testsecret",
-		},
+		Type:    "Secret",
+		Key:     TestSecretKey1,
+		Value:   &testSecretValue1,
+		RefName: &testSecretName,
 	}
 }
 
 // GetTestDeleteSecretEnvConfig1 return test secret envconfig with delete action
 func GetTestDeleteSecretEnvConfig1() v1alpha1.EnvConfig {
 	return v1alpha1.EnvConfig{
-		Key:  TestSecretKey1,
 		Type: "Secret",
-		Action: &v1alpha1.ExternalResourceAction{
-			ActionType: "Delete",
-		},
+		Key:  TestSecretKey1,
 		SecretKeyRef: &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
 				Name: "testsecret",
