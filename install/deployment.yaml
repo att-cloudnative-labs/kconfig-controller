@@ -25,4 +25,24 @@ spec:
           limits:
             memory: 2Gi
             cpu: 2
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          failureThreshold: 3
+          successThreshold: 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          failureThreshold: 3
+          successThreshold: 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
       serviceAccountName: kconfig-controller-manager
