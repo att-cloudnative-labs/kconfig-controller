@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: kube-system
+  namespace: common-system
   name: kconfig-controller-manager
 spec:
   selector:

@@ -52,4 +52,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kconfig-controller-manager
-  namespace: kube-system
+  namespace: common-system
