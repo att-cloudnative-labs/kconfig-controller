@@ -235,7 +235,7 @@ type ExternalResourceConfig struct {
 }
 
 func (c *Controller) processKconfig(kconfig *v1alpha1.Kconfig) error {
-	updatedEnvConfigs, extConfigs := extractExternalResourceConfigs(kconfig.Spec.EnvConfigs)
+	updatedEnvConfigs, extConfigs := extractExternalResourceConfigs(kconfig.Name, kconfig.Spec.EnvConfigs)
 	if err := c.processExternalResourceConfigs(extConfigs, kconfig.Namespace); err != nil {
 		return err
 	}
@@ -324,7 +324,7 @@ func (c *Controller) deleteHandler(obj interface{}) {
 	c.removeKconfigEnvsFromKconfigBindings(kc)
 }
 
-func extractExternalResourceConfigs(origEnvConfigs []v1alpha1.EnvConfig) ([]v1alpha1.EnvConfig, []ExternalResourceConfig) {
+func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha1.EnvConfig) ([]v1alpha1.EnvConfig, []ExternalResourceConfig) {
 	extConfigs := make([]ExternalResourceConfig, 0)
 	updatedEnvConfigs := make([]v1alpha1.EnvConfig, 0)
 	for _, envConfig := range origEnvConfigs {
@@ -345,7 +345,7 @@ func extractExternalResourceConfigs(origEnvConfigs []v1alpha1.EnvConfig) ([]v1al
 			var updatedEnvConfig *v1alpha1.EnvConfig
 			if envConfig.Value != nil {
 				optional := true
-				refName := getConfigMapEnvConfigResourceName(envConfig)
+				refName := getConfigMapEnvConfigResourceName(kconfigName, envConfig)
 				refKey, err := getConfigMapEnvConfigResourceKey(envConfig)
 				if err != nil {
 					klog.Warningf("Error processing EnvConfig: %s", err.Error())
@@ -380,7 +380,7 @@ func extractExternalResourceConfigs(origEnvConfigs []v1alpha1.EnvConfig) ([]v1al
 			var updatedEnvConfig *v1alpha1.EnvConfig
 			if envConfig.Value != nil {
 				optional := true
-				refName := getSecretEnvConfigResourceName(envConfig)
+				refName := getSecretEnvConfigResourceName(kconfigName, envConfig)
 				refKey, err := getSecretEnvConfigResourceKey(envConfig)
 				if err != nil {
 					klog.Warningf("Error processing EnvConfig: %s", err.Error())
@@ -412,11 +412,14 @@ func extractExternalResourceConfigs(origEnvConfigs []v1alpha1.EnvConfig) ([]v1al
 	return updatedEnvConfigs, extConfigs
 }
 
-func getConfigMapEnvConfigResourceName(envConfig v1alpha1.EnvConfig) string {
+func getConfigMapEnvConfigResourceName(kconfigName string, envConfig v1alpha1.EnvConfig) string {
 	if envConfig.ConfigMapKeyRef != nil {
 		return envConfig.ConfigMapKeyRef.LocalObjectReference.Name
 	}
-	return *envConfig.RefName
+	if envConfig.RefName != nil {
+		return *envConfig.RefName
+	}
+	return kconfigName
 }
 
 func getConfigMapEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, error) {
@@ -426,11 +429,14 @@ func getConfigMapEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, err
 	return util.GetNewKeyReference(envConfig.Key)
 }
 
-func getSecretEnvConfigResourceName(envConfig v1alpha1.EnvConfig) string {
+func getSecretEnvConfigResourceName(kconfigName string, envConfig v1alpha1.EnvConfig) string {
 	if envConfig.SecretKeyRef != nil {
 		return envConfig.SecretKeyRef.LocalObjectReference.Name
 	}
-	return *envConfig.RefName
+	if envConfig.RefName != nil {
+		return *envConfig.RefName
+	}
+	return kconfigName
 }
 
 func getSecretEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, error) {
@@ -474,8 +480,8 @@ func validateConfigMapEnvConfig(envConfig v1alpha1.EnvConfig) error {
 		return validateExistingConfigMapEnvConfig(envConfig)
 	}
 	// For Non-pre-existing ConfigMap EnvConfig
-	if envConfig.RefName == nil {
-		return fmt.Errorf("New ConfigMap EnvConfigs should have RefName")
+	if envConfig.Value == nil {
+		return fmt.Errorf("New ConfigMap EnvConfigs should have a value")
 	}
 	return nil
 }
@@ -503,8 +509,8 @@ func validateSecretEnvConfig(envConfig v1alpha1.EnvConfig) error {
 		return validateExistingSecretEnvConfig(envConfig)
 	}
 	// For Non-pre-existing Secret EnvConfig
-	if envConfig.RefName == nil {
-		return fmt.Errorf("New Secret EnvConfigs should have RefName")
+	if envConfig.Value == nil {
+		return fmt.Errorf("New Secret EnvConfigs should have a value")
 	}
 	return nil
 }

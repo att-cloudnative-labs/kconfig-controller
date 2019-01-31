@@ -361,6 +361,35 @@ func TestAddConfigMapKconfig(t *testing.T) {
 	f.run(key)
 }
 
+func TestAddConfigMapKconfigWithoutRefName(t *testing.T) {
+	f := newFixture(t)
+
+	kc := testutil.AddConfigMapKconfig()
+	kc.Spec.EnvConfigs[0].RefName = nil
+	kcb := testutil.KconfigBinding()
+	expectedkcupdate := testutil.ConfigMapKconfig()
+	expectedkcupdate.Spec.EnvConfigs[0].ConfigMapKeyRef.Name = testutil.DefaultName
+	expectedkcbupdate := testutil.ConfigMapKconfigBinding()
+	expectedkcbupdate.Spec.KconfigEnvsMap[testutil.DefaultKconfigEnvsKey].Envs[0].ValueFrom.ConfigMapKeyRef.Name = testutil.DefaultName
+	expectedcmcreate := testutil.ConfigMap()
+	expectedcmcreate.ObjectMeta.Name = testutil.DefaultName
+	expectedcmupdate := testutil.ConfigMapWithData()
+	expectedcmupdate.ObjectMeta.Name = testutil.DefaultName
+
+	f.kconfigLister = append(f.kconfigLister, &kc)
+	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &kcb)
+
+	f.expectUpdateKconfigAction(&expectedkcupdate)
+	f.expectCreateConfigMapAction(&expectedcmcreate)
+	f.expectUpdateConfigMapAction(&expectedcmupdate)
+	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+
+	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
+	f.run(key)
+}
+
 func TestAddExistingConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
@@ -395,6 +424,35 @@ func TestAddSecretKconfig(t *testing.T) {
 	expectedkcbupdate := testutil.SecretKconfigBinding()
 	expectedsecretcreate := testutil.Secret()
 	expectedsecretupdate := testutil.SecretWithData()
+
+	f.kconfigLister = append(f.kconfigLister, &kc)
+	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &kcb)
+
+	f.expectUpdateKconfigAction(&expectedkcupdate)
+	f.expectCreateSecretAction(&expectedsecretcreate)
+	f.expectUpdateSecretAction(&expectedsecretupdate)
+	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+
+	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
+	f.run(key)
+}
+
+func TestAddSecretKconfigWithoutRefName(t *testing.T) {
+	f := newFixture(t)
+
+	kc := testutil.AddSecretKconfig()
+	kc.Spec.EnvConfigs[0].RefName = nil
+	kcb := testutil.KconfigBinding()
+	expectedkcupdate := testutil.SecretKconfig()
+	expectedkcupdate.Spec.EnvConfigs[0].SecretKeyRef.Name = testutil.DefaultName
+	expectedkcbupdate := testutil.SecretKconfigBinding()
+	expectedkcbupdate.Spec.KconfigEnvsMap[testutil.DefaultKconfigEnvsKey].Envs[0].ValueFrom.SecretKeyRef.Name = testutil.DefaultName
+	expectedsecretcreate := testutil.Secret()
+	expectedsecretcreate.ObjectMeta.Name = testutil.DefaultName
+	expectedsecretupdate := testutil.SecretWithData()
+	expectedsecretupdate.ObjectMeta.Name = testutil.DefaultName
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
