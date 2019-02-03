@@ -16,6 +16,8 @@ spec:
     kind: Kconfig
     shortNames:
     - kc
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       required: ["spec"]
@@ -68,3 +70,5 @@ spec:
   - name: v1alpha1
     served: true
     storage: true
+  subresources:
+    status: {}
