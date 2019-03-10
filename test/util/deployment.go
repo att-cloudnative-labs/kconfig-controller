@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +26,7 @@ func Deployment() appsv1.Deployment {
 				DefaultSelectorKey: DefaultSelectorValue,
 			},
 			Annotations: map[string]string{
-				KconfigEnabledDeploymentAnnotation: "true",
+				controller.KconfigEnabledDeploymentAnnotation: "true",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -40,6 +41,9 @@ func Deployment() appsv1.Deployment {
 					Name:      DefaultName,
 					Labels: map[string]string{
 						DefaultSelectorKey: DefaultSelectorValue,
+					},
+					Annotations: map[string]string{
+						controller.KconfigEnvRefVersionAnnotation: "0",
 					},
 				},
 				Spec: corev1.PodSpec{

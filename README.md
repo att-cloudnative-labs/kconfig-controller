@@ -8,7 +8,7 @@ Multiple Kconfig resources can select a single deployment and the deployment wil
 
 Aside from defining simple key/value pairs, Kconfigs can also define and reference environment variables to be stored in configmaps and/or secrets.
 
-For a deployment to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/enabled=true```.
+For a deployment to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/env=true```.
 
 Kconfigs have a secondary resource, KconfigBindings. These resources should not be created/manipulated directly by users and are used by the control loops. These KconfigBinding resources serve as a target for Kconfigs to update their changes whereafter, the controller can re-processed the contained enviroment variables for all Kconfigs that target a particular deployment. Note that there will always be one KconfigBinding for each Deployment that contains the kconfig enabled annotation shown above.
 
@@ -54,7 +54,7 @@ The first envConfig is a 'Value' type. An empty type field implies a 'Value' typ
 ## Build
 
 ```bash
-docker build -f build/Dockerfile -t docker-registry.aeg.cloud/common-system/kconfig-controller:v0.2.0-alpha-1 .
+docker build -f build/Dockerfile -t docker-registry.aeg.cloud/common-system/kconfig-controller:v0.3.0-alpha-1 .
 ```
 
 ## Installation

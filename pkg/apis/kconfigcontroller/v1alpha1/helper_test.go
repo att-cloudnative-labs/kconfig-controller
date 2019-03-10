@@ -8,6 +8,7 @@ import (
 )
 
 func TestKconfigEqual(t *testing.T) {
+	firstvalue := "firstvalue"
 	k1 := Kconfig{
 		Spec: KconfigSpec{
 			Level: 1,
@@ -19,7 +20,7 @@ func TestKconfigEqual(t *testing.T) {
 			EnvConfigs: []EnvConfig{
 				EnvConfig{
 					Key:   "firstkey",
-					Value: "firstvalue",
+					Value: &firstvalue,
 				},
 				EnvConfig{
 					Key: "secondkey",
@@ -43,7 +44,7 @@ func TestKconfigEqual(t *testing.T) {
 			EnvConfigs: []EnvConfig{
 				EnvConfig{
 					Key:   "firstkey",
-					Value: "firstvalue",
+					Value: &firstvalue,
 				},
 				EnvConfig{
 					Key: "secondkey",

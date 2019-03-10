@@ -235,20 +235,28 @@ type ExternalResourceConfig struct {
 }
 
 func (c *Controller) processKconfig(kconfig *v1alpha1.Kconfig) error {
-	updatedEnvConfigs, extConfigs := extractExternalResourceConfigs(kconfig.Name, kconfig.Spec.EnvConfigs)
+	// updatedRefs boolean tracks if there was a value change to a configmap/secret.
+	// When true, the current Kconfig generation is set in the KconfigEnv of the KconfigBinding
+	// to force an update of the deployment since no change is in the EnvVars
+	updatedRefs := false
+	updatedEnvConfigs, extConfigs := extractExternalResourceConfigs(kconfig.Name, kconfig.Spec.EnvConfigs, &updatedRefs)
 	if err := c.processExternalResourceConfigs(extConfigs, kconfig.Namespace); err != nil {
 		return err
 	}
 
+	updatedKconfig := kconfig.DeepCopy()
 	if !reflect.DeepEqual(kconfig.Spec.EnvConfigs, updatedEnvConfigs) {
-		updatedKconfig := kconfig.DeepCopy()
+		if updatedRefs {
+			updatedKconfig.Spec.EnvRefsVersion++
+		}
 		updatedKconfig.Spec.EnvConfigs = updatedEnvConfigs
-		if _, err := c.kcclient.KconfigcontrollerV1alpha1().Kconfigs(kconfig.Namespace).Update(updatedKconfig); err != nil {
+		var err error
+		if updatedKconfig, err = c.kcclient.KconfigcontrollerV1alpha1().Kconfigs(kconfig.Namespace).Update(updatedKconfig); err != nil {
 			return err
 		}
 	}
-	kconfigEnvs := buildKconfigEnv(kconfig.Spec.Level, updatedEnvConfigs)
-	err := c.updateKconfigBindings(kconfig, kconfigEnvs)
+	kconfigEnvs := buildKconfigEnv(updatedKconfig.Spec.Level, updatedKconfig.Spec.EnvRefsVersion, updatedEnvConfigs)
+	err := c.updateKconfigBindings(updatedKconfig, kconfigEnvs)
 	return err
 }
 
@@ -324,7 +332,7 @@ func (c *Controller) deleteHandler(obj interface{}) {
 	c.removeKconfigEnvsFromKconfigBindings(kc)
 }
 
-func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha1.EnvConfig) ([]v1alpha1.EnvConfig, []ExternalResourceConfig) {
+func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha1.EnvConfig, updatedRefs *bool) ([]v1alpha1.EnvConfig, []ExternalResourceConfig) {
 	extConfigs := make([]ExternalResourceConfig, 0)
 	updatedEnvConfigs := make([]v1alpha1.EnvConfig, 0)
 	for _, envConfig := range origEnvConfigs {
@@ -344,6 +352,7 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 			}
 			var updatedEnvConfig *v1alpha1.EnvConfig
 			if envConfig.Value != nil {
+				*updatedRefs = true
 				optional := true
 				refName := getConfigMapEnvConfigResourceName(kconfigName, envConfig)
 				refKey, err := getConfigMapEnvConfigResourceKey(envConfig)
@@ -379,6 +388,7 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 			}
 			var updatedEnvConfig *v1alpha1.EnvConfig
 			if envConfig.Value != nil {
+				*updatedRefs = true
 				optional := true
 				refName := getSecretEnvConfigResourceName(kconfigName, envConfig)
 				refKey, err := getSecretEnvConfigResourceKey(envConfig)
@@ -616,7 +626,7 @@ func (c *Controller) createSecret(namespace, name string) (*corev1.Secret, error
 
 // Assumes the EnvConfig Type is valid and all external references
 // have been finalized with value fields removed where applicable
-func buildKconfigEnv(level int, envConfigs []v1alpha1.EnvConfig) v1alpha1.KconfigEnvs {
+func buildKconfigEnv(level int, envRefsVersion int64, envConfigs []v1alpha1.EnvConfig) v1alpha1.KconfigEnvs {
 	envs := make([]corev1.EnvVar, 0)
 	for _, envConfig := range envConfigs {
 		switch envConfig.Type {
@@ -633,7 +643,8 @@ func buildKconfigEnv(level int, envConfigs []v1alpha1.EnvConfig) v1alpha1.Kconfi
 		}
 	}
 	return v1alpha1.KconfigEnvs{
-		Level: level,
-		Envs:  envs,
+		Level:          level,
+		EnvRefsVersion: envRefsVersion,
+		Envs:           envs,
 	}
 }

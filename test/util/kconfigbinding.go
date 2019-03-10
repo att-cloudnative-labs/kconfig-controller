@@ -67,10 +67,11 @@ func NewValueKconfigBinding() v1alpha1.KconfigBinding {
 }
 
 // ConfigMapKconfigBinding returns KconfigBinding with ConfigMap envVar
-func ConfigMapKconfigBinding() v1alpha1.KconfigBinding {
+func ConfigMapKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
 	optional := true
 	kconfigEnvs := v1alpha1.KconfigEnvs{
-		Level: DefaultLevel,
+		Level:          DefaultLevel,
+		EnvRefsVersion: envRefsVersion,
 		Envs: []corev1.EnvVar{
 			corev1.EnvVar{
 				Name: DefaultKey,
@@ -92,10 +93,11 @@ func ConfigMapKconfigBinding() v1alpha1.KconfigBinding {
 }
 
 // SecretKconfigBinding returns KconfigBinding with Secret envVar
-func SecretKconfigBinding() v1alpha1.KconfigBinding {
+func SecretKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
 	optional := true
 	kconfigEnvs := v1alpha1.KconfigEnvs{
-		Level: DefaultLevel,
+		Level:          DefaultLevel,
+		EnvRefsVersion: envRefsVersion,
 		Envs: []corev1.EnvVar{
 			corev1.EnvVar{
 				Name: DefaultKey,

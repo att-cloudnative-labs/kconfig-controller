@@ -3,6 +3,7 @@ package kconfigbinding
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
@@ -237,7 +238,12 @@ func (c *Controller) processKconfigBinding(kconfigBinding *kconfigv1alpha1.Kconf
 
 	// Create final env array
 	envArray := []corev1.EnvVar{}
+	// envRefsVersions tracks changes to refs among various KconfigEnvs for updating deployment
+	// template when reference value changes but no keys have changed. It is composed of each
+	// KconfigEnv's envRefsVersion concatenated into a single string
+	envRefsVersions := ""
 	for _, kconfigEnv := range kconfigEnvs {
+		envRefsVersions += strconv.FormatInt(kconfigEnv.EnvRefsVersion, 10)
 		envArray = append(envArray, kconfigEnv.Envs...)
 	}
 
@@ -250,6 +256,10 @@ func (c *Controller) processKconfigBinding(kconfigBinding *kconfigv1alpha1.Kconf
 		return nil
 	}
 	deploymentCopy := deployment.DeepCopy()
+	if deploymentCopy.Spec.Template.ObjectMeta.Annotations == nil {
+		deploymentCopy.Spec.Template.ObjectMeta.Annotations = make(map[string]string, 0)
+	}
+	deploymentCopy.Spec.Template.ObjectMeta.Annotations[controller.KconfigEnvRefVersionAnnotation] = envRefsVersions
 	deploymentCopy.Spec.Template.Spec.Containers[0].Env = envArray
 	if _, err = c.stdclient.Apps().Deployments(deploymentCopy.Namespace).Update(deploymentCopy); err != nil {
 		return err

@@ -12,15 +12,15 @@ import (
 type Kconfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec KconfigSpec `json:"spec" protobuf:"bytes,1,opt,name=spec"`
+	Spec              KconfigSpec `json:"spec" protobuf:"bytes,1,opt,name=spec"`
 }
 
 // KconfigSpec Spec field for Kconfig struct
 type KconfigSpec struct {
-	Level      int                  `json:"level"`
-	Selector   metav1.LabelSelector `json:"selector" protobuf:"bytes,1,opt,name=selector"`
-	EnvConfigs []EnvConfig          `json:"envConfigs"`
+	Level          int                  `json:"level"`
+	Selector       metav1.LabelSelector `json:"selector" protobuf:"bytes,1,opt,name=selector"`
+	EnvConfigs     []EnvConfig          `json:"envConfigs"`
+	EnvRefsVersion int64                `json:"envRefsVersion"`
 }
 
 // EnvConfig represents a single environment variable configuration
@@ -40,8 +40,7 @@ type EnvConfig struct {
 type KconfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-
-	Items []Kconfig `json:"items"`
+	Items           []Kconfig `json:"items"`
 }
 
 // +genclient
@@ -59,8 +58,9 @@ type KconfigBindingSpec struct {
 }
 
 type KconfigEnvs struct {
-	Level int         `json:"level"`
-	Envs  []v1.EnvVar `json:"envs"`
+	Level          int         `json:"level"`
+	EnvRefsVersion int64       `json:"envRefsVersion"`
+	Envs           []v1.EnvVar `json:"envs"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -68,6 +68,5 @@ type KconfigEnvs struct {
 type KconfigBindingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-
-	Items []KconfigBinding `json:"items"`
+	Items           []KconfigBinding `json:"items"`
 }

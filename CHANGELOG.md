@@ -2,6 +2,11 @@
 
 ## Development release
 
+0.3.0-ALPHA-1
+
+- Deployment annotation enabling Kconfig environment management changed to "kconfigcontroller.atteg.com/env"
+- EnvRefsVersion field added to Kconfig.Spec and KconfigBinding.Spec.KconfigEnv to track changes to values of reference types (ConfigMap/Secret). Deployments are now correctly updated with template annotation to trigger new pods that pick up the update.
+
 0.2.0-ALPHA-1
 
 - Action field in EnvConfig is removed. Action to perform on Kconfig EnvConfig changes are implicit.

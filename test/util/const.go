@@ -65,6 +65,4 @@ const (
 	UpdateAction = "Update"
 	// DeleteAction delete action
 	DeleteAction = "Delete"
-	// KconfigEnabledDeploymentAnnotation annotation for enabling kconfig mgmt in deployment
-	KconfigEnabledDeploymentAnnotation = "kconfigcontroller.atteg.com/enabled"
 )
