@@ -17,14 +17,14 @@ spec:
         args:
         - --logtostderr=true
         - -v=5
-        image: docker-registry.aeg.cloud/common-system/kconfig-controller:v0.3.0-alpha-1
+        image: docker-registry.aeg.cloud/common-system/kconfig-controller:v0.3.1-alpha-1
         resources:
           requests:
             memory: 2Gi
-            cpu: 2
+            cpu: 4
           limits:
             memory: 2Gi
-            cpu: 2
+            cpu: 4
         livenessProbe:
           httpGet:
             path: /health

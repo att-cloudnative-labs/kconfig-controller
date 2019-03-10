@@ -1,7 +1,6 @@
 package kconfig
 
 import (
-	"encoding/base64"
 	"fmt"
 	"reflect"
 	"time"
@@ -179,7 +178,7 @@ func (c *Controller) processNextWorkItem() bool {
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Foo resource to be synced.
+		// Kconfig resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			return fmt.Errorf("error syncing '%s': %s", key, err.Error())
 		}
@@ -588,13 +587,7 @@ func (c *Controller) processSecretConfig(extConfig ExternalResourceConfig, names
 	}
 	secretCopy := secret.DeepCopy()
 	dataBytes := []byte(extConfig.Value)
-	encodedLen := base64.StdEncoding.EncodedLen(len(dataBytes))
-	encoded := make([]byte, encodedLen)
-	base64.StdEncoding.Encode(encoded, dataBytes)
-	if secretCopy.Data == nil {
-		secretCopy.Data = make(map[string][]byte)
-	}
-	secretCopy.Data[extConfig.ResourceKey] = encoded
+	secretCopy.Data[extConfig.ResourceKey] = dataBytes
 	if !reflect.DeepEqual(secretCopy, secret) {
 		_, err = c.stdclient.CoreV1().Secrets(namespace).Update(secretCopy)
 	}

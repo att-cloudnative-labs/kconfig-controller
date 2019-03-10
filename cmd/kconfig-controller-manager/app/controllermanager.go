@@ -88,9 +88,9 @@ func run(cmd *cobra.Command, args []string) {
 	go stdInformerFactory.Start(stopCh)
 	go kconfigInformerFactory.Start(stopCh)
 
-	go kconfigcontroller.Run(2, stopCh)
-	go kconfigbindingcontroller.Run(2, stopCh)
-	go deploymentcontroller.Run(2, stopCh)
+	go kconfigcontroller.Run(4, stopCh)
+	go kconfigbindingcontroller.Run(4, stopCh)
+	go deploymentcontroller.Run(4, stopCh)
 
 	serverCfg := server.Cfg{Port: 8080}
 	server := server.NewServer(serverCfg)

@@ -2,6 +2,10 @@
 
 ## Development release
 
+0.3.1-ALPHA-1
+
+- Fixes issue of secret values being double base64 encoded
+
 0.3.0-ALPHA-1
 
 - Deployment annotation enabling Kconfig environment management changed to "kconfigcontroller.atteg.com/env"
