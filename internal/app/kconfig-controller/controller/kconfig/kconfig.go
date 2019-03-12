@@ -587,6 +587,9 @@ func (c *Controller) processSecretConfig(extConfig ExternalResourceConfig, names
 	}
 	secretCopy := secret.DeepCopy()
 	dataBytes := []byte(extConfig.Value)
+	if secretCopy.Data == nil {
+		secretCopy.Data = make(map[string][]byte)
+	}
 	secretCopy.Data[extConfig.ResourceKey] = dataBytes
 	if !reflect.DeepEqual(secretCopy, secret) {
 		_, err = c.stdclient.CoreV1().Secrets(namespace).Update(secretCopy)
@@ -611,8 +614,7 @@ func (c *Controller) createSecret(namespace, name string) (*corev1.Secret, error
 			Namespace: namespace,
 			Name:      name,
 		},
-		Data:       map[string][]byte{},
-		StringData: map[string]string{},
+		Data: map[string][]byte{},
 	}
 	return c.stdclient.CoreV1().Secrets(namespace).Create(secret)
 }

@@ -2,6 +2,10 @@
 
 ## Development release
 
+0.3.2-ALPHA-1
+
+- Fixes issue of panic when creating new secret for Kconfig envConfig with 'Secret' type
+
 0.3.1-ALPHA-1
 
 - Fixes issue of secret values being double base64 encoded
