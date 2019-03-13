@@ -29,6 +29,12 @@ import (
 	"k8s.io/klog"
 )
 
+const (
+	// ReferenceResourceNamePrefix when a configmap/secret is automatically created, this prefix is applied to the name
+	// Will eventually make this a configuration
+	ReferenceResourceNamePrefix = "kc-"
+)
+
 // Controller controller object
 type Controller struct {
 	recorder record.EventRecorder
@@ -353,7 +359,7 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 			if envConfig.Value != nil {
 				*updatedRefs = true
 				optional := true
-				refName := getConfigMapEnvConfigResourceName(kconfigName, envConfig)
+				refName := getConfigMapEnvConfigResourceName(kconfigName, envConfig, ReferenceResourceNamePrefix)
 				refKey, err := getConfigMapEnvConfigResourceKey(envConfig)
 				if err != nil {
 					klog.Warningf("Error processing EnvConfig: %s", err.Error())
@@ -389,7 +395,7 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 			if envConfig.Value != nil {
 				*updatedRefs = true
 				optional := true
-				refName := getSecretEnvConfigResourceName(kconfigName, envConfig)
+				refName := getSecretEnvConfigResourceName(kconfigName, envConfig, ReferenceResourceNamePrefix)
 				refKey, err := getSecretEnvConfigResourceKey(envConfig)
 				if err != nil {
 					klog.Warningf("Error processing EnvConfig: %s", err.Error())
@@ -421,14 +427,14 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 	return updatedEnvConfigs, extConfigs
 }
 
-func getConfigMapEnvConfigResourceName(kconfigName string, envConfig v1alpha1.EnvConfig) string {
+func getConfigMapEnvConfigResourceName(kconfigName string, envConfig v1alpha1.EnvConfig, prefix string) string {
 	if envConfig.ConfigMapKeyRef != nil {
 		return envConfig.ConfigMapKeyRef.LocalObjectReference.Name
 	}
 	if envConfig.RefName != nil {
 		return *envConfig.RefName
 	}
-	return kconfigName
+	return fmt.Sprintf("%s%s", prefix, kconfigName)
 }
 
 func getConfigMapEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, error) {
@@ -438,14 +444,14 @@ func getConfigMapEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, err
 	return util.GetNewKeyReference(envConfig.Key)
 }
 
-func getSecretEnvConfigResourceName(kconfigName string, envConfig v1alpha1.EnvConfig) string {
+func getSecretEnvConfigResourceName(kconfigName string, envConfig v1alpha1.EnvConfig, prefix string) string {
 	if envConfig.SecretKeyRef != nil {
 		return envConfig.SecretKeyRef.LocalObjectReference.Name
 	}
 	if envConfig.RefName != nil {
 		return *envConfig.RefName
 	}
-	return kconfigName
+	return fmt.Sprintf("%s%s", prefix, kconfigName)
 }
 
 func getSecretEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, error) {

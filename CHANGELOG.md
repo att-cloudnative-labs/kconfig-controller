@@ -2,6 +2,10 @@
 
 ## Development release
 
+0.4.0-BETA-1
+
+- Adds prefix 'kc-' to the name of configmaps/secrets created automatically from envConfigs
+
 0.3.2-ALPHA-1
 
 - Fixes issue of panic when creating new secret for Kconfig envConfig with 'Secret' type
