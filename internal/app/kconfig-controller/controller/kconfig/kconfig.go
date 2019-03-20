@@ -88,13 +88,6 @@ func NewController(
 	kconfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueKconfig,
 		UpdateFunc: func(old, new interface{}) {
-			newKconfig := new.(*v1alpha1.Kconfig)
-			oldKconfig := old.(*v1alpha1.Kconfig)
-			if newKconfig.ResourceVersion == oldKconfig.ResourceVersion {
-				// Periodic resync will send update events for all known Kconfigs.
-				// Two different versions of the same Deployment will always have different RVs.
-				return
-			}
 			controller.enqueueKconfig(new)
 		},
 		DeleteFunc: controller.deleteHandler,

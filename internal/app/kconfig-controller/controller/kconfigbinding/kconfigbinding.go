@@ -84,13 +84,6 @@ func NewController(
 	kconfigBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueKconfigBinding,
 		UpdateFunc: func(old, new interface{}) {
-			newKcb := new.(*kconfigv1alpha1.KconfigBinding)
-			oldKcb := old.(*kconfigv1alpha1.KconfigBinding)
-			if newKcb.ResourceVersion == oldKcb.ResourceVersion {
-				// Periodic resync will send update events for all known KconfigBindings.
-				// Two different versions of the same Deployment will always have different RVs.
-				return
-			}
 			controller.enqueueKconfigBinding(new)
 		},
 	})

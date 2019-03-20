@@ -2,6 +2,10 @@
 
 ## Development release
 
+0.4.1-BETA-1
+
+- Controller informer event handlers place all updates into work queue regardless if the resource version hasn't changed. This address issue where target resources aren't updated if they were created after the source resource was modified.
+
 0.4.0-BETA-1
 
 - Adds prefix 'kc-' to the name of configmaps/secrets created automatically from envConfigs
