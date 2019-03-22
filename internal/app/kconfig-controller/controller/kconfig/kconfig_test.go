@@ -1,6 +1,7 @@
 package kconfig
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -174,18 +175,11 @@ func (f *fixture) checkActions() {
 // actionObjectsMatch Assumes expectedAction and action have already had their
 // verbs matched. Always returns true if params aren't Create or Update actions.
 func (f *fixture) actionObjectsMatch(expectedAction, action core.Action) bool {
+	// CreateAction and UpdateAction have the same interface methods, so either will be checked here
 	if expectedCreateAction, ok := expectedAction.(core.CreateAction); ok {
 		createAction, _ := action.(core.CreateAction)
 		if !reflect.DeepEqual(expectedCreateAction.GetObject(), createAction.GetObject()) {
-			f.t.Errorf("Expected\n\t%+v\ngot\n\t%+v", expectedCreateAction.GetObject(), createAction.GetObject())
-			return false
-		}
-		return true
-	}
-	if expectedUpdateAction, ok := expectedAction.(core.UpdateAction); ok {
-		updateAction, _ := action.(core.UpdateAction)
-		if !reflect.DeepEqual(expectedUpdateAction.GetObject(), updateAction.GetObject()) {
-			f.t.Errorf("Expected\n\t%+v\ngot\n\t%+v", expectedUpdateAction.GetObject(), updateAction.GetObject())
+			f.t.Errorf("Expected %s\n\t%+v\ngot\n\t%+v", expectedCreateAction.GetVerb(), expectedCreateAction.GetObject(), createAction.GetObject())
 			return false
 		}
 		return true
@@ -305,9 +299,9 @@ func TestValueKconfig(t *testing.T) {
 func TestConfigmapKconfig(t *testing.T) {
 	f := newFixture(t)
 
-	kc := testutil.ConfigMapKconfig()
+	kc := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
 	kcb := testutil.KconfigBinding()
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(0)
+	expectedkcbupdate := testutil.ConfigMapKconfigBinding(0, testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -323,9 +317,9 @@ func TestConfigmapKconfig(t *testing.T) {
 func TestSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
-	kc := testutil.SecretKconfig()
+	kc := testutil.SecretKconfig(testutil.DefaultSecretName)
 	kcb := testutil.KconfigBinding()
-	expectedkcbupdate := testutil.SecretKconfigBinding(0)
+	expectedkcbupdate := testutil.SecretKconfigBinding(0, testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -337,16 +331,53 @@ func TestSecretKconfig(t *testing.T) {
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
 }
+
+func TestFieldRefKconfig(t *testing.T) {
+	f := newFixture(t)
+
+	kc := testutil.FieldRefKconfig()
+	kcb := testutil.KconfigBinding()
+	expectedkcbupdate := testutil.FieldRefKconfigBinding(0)
+
+	f.kconfigLister = append(f.kconfigLister, &kc)
+	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &kcb)
+
+	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+
+	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
+	f.run(key)
+}
+
+func TestResourceFieldRefKconfig(t *testing.T) {
+	f := newFixture(t)
+
+	kc := testutil.ResourceFieldRefKconfig()
+	kcb := testutil.KconfigBinding()
+	expectedkcbupdate := testutil.ResourceFieldRefKconfigBinding(0)
+
+	f.kconfigLister = append(f.kconfigLister, &kc)
+	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &kcb)
+
+	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+
+	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
+	f.run(key)
+}
+
 func TestAddConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddConfigMapKconfig()
 	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.ConfigMapKconfig()
+	expectedkcupdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1)
-	expectedcmcreate := testutil.ConfigMap()
-	expectedcmupdate := testutil.ConfigMapWithData()
+	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, testutil.DefaultConfigMapName)
+	expectedcmcreate := testutil.ConfigMap(testutil.DefaultConfigMapName)
+	expectedcmupdate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -365,18 +396,15 @@ func TestAddConfigMapKconfig(t *testing.T) {
 func TestAddConfigMapKconfigWithoutRefName(t *testing.T) {
 	f := newFixture(t)
 
+	configMapName := fmt.Sprintf("%s%s", ReferenceResourceNamePrefix, testutil.DefaultName)
 	kc := testutil.AddConfigMapKconfig()
 	kc.Spec.EnvConfigs[0].RefName = nil
 	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.ConfigMapKconfig()
+	expectedkcupdate := testutil.ConfigMapKconfig(configMapName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcupdate.Spec.EnvConfigs[0].ConfigMapKeyRef.Name = testutil.DefaultName
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1)
-	expectedkcbupdate.Spec.KconfigEnvsMap[testutil.DefaultKconfigEnvsKey].Envs[0].ValueFrom.ConfigMapKeyRef.Name = testutil.DefaultName
-	expectedcmcreate := testutil.ConfigMap()
-	expectedcmcreate.ObjectMeta.Name = testutil.DefaultName
-	expectedcmupdate := testutil.ConfigMapWithData()
-	expectedcmupdate.ObjectMeta.Name = testutil.DefaultName
+	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, configMapName)
+	expectedcmcreate := testutil.ConfigMap(configMapName)
+	expectedcmupdate := testutil.ConfigMapWithData(configMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -392,16 +420,56 @@ func TestAddConfigMapKconfigWithoutRefName(t *testing.T) {
 	f.run(key)
 }
 
+func TestAddFieldRefKconfig(t *testing.T) {
+	f := newFixture(t)
+
+	kc := testutil.AddFieldRefKconfig()
+	kcb := testutil.KconfigBinding()
+	expectedkcupdate := testutil.FieldRefKconfig()
+	expectedkcbupdate := testutil.FieldRefKconfigBinding(0)
+
+	f.kconfigLister = append(f.kconfigLister, &kc)
+	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &kcb)
+
+	f.expectUpdateKconfigAction(&expectedkcupdate)
+	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+
+	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
+	f.run(key)
+}
+
+func TestAddResourceFieldRefKconfig(t *testing.T) {
+	f := newFixture(t)
+
+	kc := testutil.AddResourceFieldRefKconfig()
+	kcb := testutil.KconfigBinding()
+	expectedkcupdate := testutil.ResourceFieldRefKconfig()
+	expectedkcbupdate := testutil.ResourceFieldRefKconfigBinding(0)
+
+	f.kconfigLister = append(f.kconfigLister, &kc)
+	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &kcb)
+
+	f.expectUpdateKconfigAction(&expectedkcupdate)
+	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+
+	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
+	f.run(key)
+}
+
 func TestAddExistingConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddConfigMapKconfig()
 	kcb := testutil.KconfigBinding()
-	cm := testutil.ConfigMap()
-	expectedkcupdate := testutil.ConfigMapKconfig()
+	cm := testutil.ConfigMap(testutil.DefaultConfigMapName)
+	expectedkcupdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1)
-	expectedcmupdate := testutil.ConfigMapWithData()
+	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, testutil.DefaultConfigMapName)
+	expectedcmupdate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -423,11 +491,11 @@ func TestAddSecretKconfig(t *testing.T) {
 
 	kc := testutil.AddSecretKconfig()
 	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.SecretKconfig()
+	expectedkcupdate := testutil.SecretKconfig(testutil.DefaultSecretName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.SecretKconfigBinding(1)
-	expectedsecretcreate := testutil.Secret()
-	expectedsecretupdate := testutil.SecretWithData()
+	expectedkcbupdate := testutil.SecretKconfigBinding(1, testutil.DefaultSecretName)
+	expectedsecretcreate := testutil.Secret(testutil.DefaultSecretName)
+	expectedsecretupdate := testutil.SecretWithData(testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -449,15 +517,12 @@ func TestAddSecretKconfigWithoutRefName(t *testing.T) {
 	kc := testutil.AddSecretKconfig()
 	kc.Spec.EnvConfigs[0].RefName = nil
 	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.SecretKconfig()
+	secretName := fmt.Sprintf("%s%s", ReferenceResourceNamePrefix, testutil.DefaultName)
+	expectedkcupdate := testutil.SecretKconfig(secretName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcupdate.Spec.EnvConfigs[0].SecretKeyRef.Name = testutil.DefaultName
-	expectedkcbupdate := testutil.SecretKconfigBinding(1)
-	expectedkcbupdate.Spec.KconfigEnvsMap[testutil.DefaultKconfigEnvsKey].Envs[0].ValueFrom.SecretKeyRef.Name = testutil.DefaultName
-	expectedsecretcreate := testutil.Secret()
-	expectedsecretcreate.ObjectMeta.Name = testutil.DefaultName
-	expectedsecretupdate := testutil.SecretWithData()
-	expectedsecretupdate.ObjectMeta.Name = testutil.DefaultName
+	expectedkcbupdate := testutil.SecretKconfigBinding(1, secretName)
+	expectedsecretcreate := testutil.Secret(secretName)
+	expectedsecretupdate := testutil.SecretWithData(secretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -478,11 +543,11 @@ func TestAddExistingSecretKconfig(t *testing.T) {
 
 	kc := testutil.AddSecretKconfig()
 	kcb := testutil.KconfigBinding()
-	secret := testutil.Secret()
-	expectedkcupdate := testutil.SecretKconfig()
+	secret := testutil.Secret(testutil.DefaultSecretName)
+	expectedkcupdate := testutil.SecretKconfig(testutil.DefaultSecretName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.SecretKconfigBinding(1)
-	expectedsecretupdate := testutil.SecretWithData()
+	expectedkcbupdate := testutil.SecretKconfigBinding(1, testutil.DefaultSecretName)
+	expectedsecretupdate := testutil.SecretWithData(testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -520,12 +585,12 @@ func TestUpdateConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.UpdateConfigMapKconfig()
-	kcb := testutil.ConfigMapKconfigBinding(0)
-	cm := testutil.ConfigMapWithData()
-	expectedkcupdate := testutil.ConfigMapKconfig()
+	kcb := testutil.ConfigMapKconfigBinding(0, testutil.DefaultConfigMapName)
+	cm := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
+	expectedkcupdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1)
-	expectedcmupdate := testutil.ConfigMapWithNewData()
+	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, testutil.DefaultConfigMapName)
+	expectedcmupdate := testutil.ConfigMapWithNewData(testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -546,12 +611,12 @@ func TestUpdateSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.UpdateSecretKconfig()
-	kcb := testutil.SecretKconfigBinding(0)
-	secret := testutil.SecretWithData()
-	expectedkcupdate := testutil.SecretKconfig()
+	kcb := testutil.SecretKconfigBinding(0, testutil.DefaultSecretName)
+	secret := testutil.SecretWithData(testutil.DefaultSecretName)
+	expectedkcupdate := testutil.SecretKconfig(testutil.DefaultSecretName)
 	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.SecretKconfigBinding(1)
-	expectedsecretupdate := testutil.SecretWithNewData()
+	expectedkcbupdate := testutil.SecretKconfigBinding(1, testutil.DefaultSecretName)
+	expectedsecretupdate := testutil.SecretWithNewData(testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -590,8 +655,8 @@ func TestDeleteConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.DeleteConfigMapKconfig()
-	kcb := testutil.ConfigMapKconfigBinding(0)
-	cm := testutil.ConfigMapWithData()
+	kcb := testutil.ConfigMapKconfigBinding(0, testutil.DefaultConfigMapName)
+	cm := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
 	expectedkcbupdate := testutil.EmptyKconfigEnvsKconfigBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
@@ -611,8 +676,8 @@ func TestDeleteSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.DeleteSecretKconfig()
-	kcb := testutil.SecretKconfigBinding(0)
-	secret := testutil.SecretWithData()
+	kcb := testutil.SecretKconfigBinding(0, testutil.DefaultSecretName)
+	secret := testutil.SecretWithData(testutil.DefaultSecretName)
 	expectedkcbupdate := testutil.EmptyKconfigEnvsKconfigBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)

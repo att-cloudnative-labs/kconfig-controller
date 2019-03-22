@@ -43,6 +43,13 @@ spec:
       key: myconfigmapvar
       name: sameplecm
       optional: true
+  - type: FieldRef
+    key: MYPODIP
+    value: status.podIP
+  - type: ResourceFieldRef
+    key: MYRESOURCE
+    resourceFieldRef:
+      resource: limits.memory
   level: 2
   selector:
     matchLabels:
@@ -54,7 +61,7 @@ The first envConfig is a 'Value' type. An empty type field implies a 'Value' typ
 ## Build
 
 ```bash
-docker build -f build/Dockerfile -t docker-registry.aeg.cloud/common-system/kconfig-controller:v0.4.1-beta-1 .
+docker build -f build/Dockerfile -t docker-registry.aeg.cloud/common-system/kconfig-controller:v0.5.0-beta-1 .
 ```
 
 ## Installation
@@ -69,5 +76,4 @@ kubectl apply -f install/
 * Validate that all existing configmap/secret references in a Kconfig exists and if not, removed them from the Kconfig
 * Support for files form and mount locations for files through Kconfigs
 * Possible move to injecting the environment variables directly to pods through a custom admission controller
-* Support for fieldRefs
 * Support for configuring Statefulsets

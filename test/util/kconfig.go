@@ -53,14 +53,14 @@ func NewValueKconfig() v1alpha1.Kconfig {
 }
 
 // ConfigMapKconfig returns Kconfig with existing ConfigMap
-func ConfigMapKconfig() v1alpha1.Kconfig {
+func ConfigMapKconfig(configMapName string) v1alpha1.Kconfig {
 	kconfig := Kconfig()
 	optional := true
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
 		Type: ConfigMapType,
 		Key:  DefaultKey,
 		ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: DefaultConfigMapName},
+			LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
 			Key:                  DefaultReferenceKey,
 			Optional:             &optional,
 		},
@@ -107,14 +107,14 @@ func DeleteConfigMapKconfig() v1alpha1.Kconfig {
 }
 
 // SecretKconfig returns Kconfig with existing Secret
-func SecretKconfig() v1alpha1.Kconfig {
+func SecretKconfig(secretName string) v1alpha1.Kconfig {
 	kconfig := Kconfig()
 	optional := true
 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
 		Type: SecretType,
 		Key:  DefaultKey,
 		SecretKeyRef: &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{Name: DefaultSecretName},
+			LocalObjectReference: corev1.LocalObjectReference{Name: secretName},
 			Key:                  DefaultReferenceKey,
 			Optional:             &optional,
 		},
@@ -132,6 +132,66 @@ func AddSecretKconfig() v1alpha1.Kconfig {
 		Key:     DefaultKey,
 		Value:   &defaultValue,
 		RefName: &defaultSecretName,
+	})
+	return kconfig
+}
+
+// FieldRefKconfig returns Kconfig with existing FieldRef
+func FieldRefKconfig() v1alpha1.Kconfig {
+	kconfig := Kconfig()
+	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
+		Type: FieldRefType,
+		Key:  DefaultKey,
+		FieldRef: &corev1.ObjectFieldSelector{
+			FieldPath: DefaultFieldPath,
+		},
+	})
+	return kconfig
+}
+
+// ResourceFieldRefKconfig returns Kconfig with existing FieldRef
+func ResourceFieldRefKconfig() v1alpha1.Kconfig {
+	kconfig := Kconfig()
+	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
+		Type: ResourceFieldRefType,
+		Key:  DefaultKey,
+		ResourceFieldRef: &corev1.ResourceFieldSelector{
+			Resource: DefaultResourceFieldRefResource,
+		},
+	})
+	return kconfig
+}
+
+// AddFieldRefKconfig returns Field Kconfig
+func AddFieldRefKconfig() v1alpha1.Kconfig {
+	kconfig := Kconfig()
+	defaultFieldPath := DefaultFieldPath
+	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
+		Type:  FieldRefType,
+		Key:   DefaultKey,
+		Value: &defaultFieldPath,
+	})
+	return kconfig
+}
+
+// func AddResourceFieldRefKconfig() v1alpha1.Kconfig {
+// 	kconfig := Kconfig()
+// 	defaultResource := DefaultResourceFieldRefResource
+// 	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
+// 		Type:  ResourceFieldRefType,
+// 		Key:   DefaultKey,
+// 		Value: &defaultResource,
+// 	})
+// 	return kconfig
+// }
+// AddResourceFieldRefKconfig returns Field Kconfig
+func AddResourceFieldRefKconfig() v1alpha1.Kconfig {
+	kconfig := Kconfig()
+	defaultResource := DefaultResourceFieldRefResource
+	kconfig.Spec.EnvConfigs = append(kconfig.Spec.EnvConfigs, v1alpha1.EnvConfig{
+		Type:  ResourceFieldRefType,
+		Key:   DefaultKey,
+		Value: &defaultResource,
 	})
 	return kconfig
 }

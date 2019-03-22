@@ -67,7 +67,7 @@ func NewValueKconfigBinding() v1alpha1.KconfigBinding {
 }
 
 // ConfigMapKconfigBinding returns KconfigBinding with ConfigMap envVar
-func ConfigMapKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
+func ConfigMapKconfigBinding(envRefsVersion int64, configMapName string) v1alpha1.KconfigBinding {
 	optional := true
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level:          DefaultLevel,
@@ -78,7 +78,7 @@ func ConfigMapKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
 				ValueFrom: &corev1.EnvVarSource{
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: DefaultConfigMapName,
+							Name: configMapName,
 						},
 						Key:      DefaultReferenceKey,
 						Optional: &optional,
@@ -93,7 +93,7 @@ func ConfigMapKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
 }
 
 // SecretKconfigBinding returns KconfigBinding with Secret envVar
-func SecretKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
+func SecretKconfigBinding(envRefsVersion int64, secretName string) v1alpha1.KconfigBinding {
 	optional := true
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level:          DefaultLevel,
@@ -104,10 +104,52 @@ func SecretKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: DefaultSecretName,
+							Name: secretName,
 						},
 						Key:      DefaultReferenceKey,
 						Optional: &optional,
+					},
+				},
+			},
+		},
+	}
+	kcb := KconfigBinding()
+	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
+	return kcb
+}
+
+// FieldRefKconfigBinding FieldRefKconfigBinding
+func FieldRefKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
+	kconfigEnvs := v1alpha1.KconfigEnvs{
+		Level:          DefaultLevel,
+		EnvRefsVersion: envRefsVersion,
+		Envs: []corev1.EnvVar{
+			corev1.EnvVar{
+				Name: DefaultKey,
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: DefaultFieldPath,
+					},
+				},
+			},
+		},
+	}
+	kcb := KconfigBinding()
+	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
+	return kcb
+}
+
+// ResourceFieldRefKconfigBinding ResourceFieldRefKconfigBinding
+func ResourceFieldRefKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
+	kconfigEnvs := v1alpha1.KconfigEnvs{
+		Level:          DefaultLevel,
+		EnvRefsVersion: envRefsVersion,
+		Envs: []corev1.EnvVar{
+			corev1.EnvVar{
+				Name: DefaultKey,
+				ValueFrom: &corev1.EnvVarSource{
+					ResourceFieldRef: &corev1.ResourceFieldSelector{
+						Resource: DefaultResourceFieldRefResource,
 					},
 				},
 			},

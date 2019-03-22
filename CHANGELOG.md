@@ -2,6 +2,12 @@
 
 ## Development release
 
+0.5.0-BETA-1
+
+- FieldRef/ResourceFieldRef EnvConfig types added. Value field creates a FielfRef with just a fieldPath containing the value. Value field creates a ResourceFieldPath with just a 'resource' field containing the value.
+- EnvConfig Types are no longer case sensitive when modifying but will be replaced with the camel-cased type on processing. Crd removed the enum validation of type. This was to prevent case checking of types but now the api will not validate type.
+- Makefile updated to build images and corrected target dependencies
+
 0.4.1-BETA-1
 
 - Controller informer event handlers place all updates into work queue regardless if the resource version hasn't changed. This address issue where target resources aren't updated if they were created after the source resource was modified.
@@ -37,9 +43,3 @@
 - Kconfig controller reconciles KconfigBindings environment variables defined in Kconfigs
 - KconfigBinding controller reconciles Deployments with the environment variables defined in KconfigBindings
 - Deployment controller ensures annotated Deployments have a KconfigBinding created with matching labels
-
-## Current release
-
-- 0.1.0-ALPHA-1
-
-## Older releases

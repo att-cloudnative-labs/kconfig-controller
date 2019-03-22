@@ -53,6 +53,16 @@ func (in *EnvConfig) DeepCopyInto(out *EnvConfig) {
 		*out = new(v1.SecretKeySelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.FieldRef != nil {
+		in, out := &in.FieldRef, &out.FieldRef
+		*out = new(v1.ObjectFieldSelector)
+		**out = **in
+	}
+	if in.ResourceFieldRef != nil {
+		in, out := &in.ResourceFieldRef, &out.ResourceFieldRef
+		*out = new(v1.ResourceFieldSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

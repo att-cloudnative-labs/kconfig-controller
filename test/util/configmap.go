@@ -6,26 +6,26 @@ import (
 )
 
 // ConfigMap returns new configmap without any data
-func ConfigMap() corev1.ConfigMap {
+func ConfigMap(name string) corev1.ConfigMap {
 	return corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: DefaultNamespace,
-			Name:      DefaultConfigMapName,
+			Name:      name,
 		},
 		Data: map[string]string{},
 	}
 }
 
 // ConfigMapWithData returns configMap with single data
-func ConfigMapWithData() corev1.ConfigMap {
-	configmap := ConfigMap()
+func ConfigMapWithData(name string) corev1.ConfigMap {
+	configmap := ConfigMap(name)
 	configmap.Data[DefaultReferenceKey] = DefaultValue
 	return configmap
 }
 
 // ConfigMapWithNewData returns configMap with new value in data
-func ConfigMapWithNewData() corev1.ConfigMap {
-	configmap := ConfigMap()
+func ConfigMapWithNewData(name string) corev1.ConfigMap {
+	configmap := ConfigMap(name)
 	configmap.Data[DefaultReferenceKey] = DefaultNewValue
 	return configmap
 }

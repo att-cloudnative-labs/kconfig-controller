@@ -15,6 +15,10 @@ const (
 	DefaultKey = "TEST_KEY"
 	// DefaultReferenceKey Default reference key, must match conversion of defaultKey
 	DefaultReferenceKey = "testkey"
+	// DefaultFieldPath Default fieldPath
+	DefaultFieldPath = "status.hostIP"
+	// DefaultResourceFieldRefResource Default ResourceFieldRef resource
+	DefaultResourceFieldRefResource = "requests.cpu"
 	// DefaultValue Default Value
 	DefaultValue = "testvalue"
 	// DefaultEncodedValue Value base64 encoded
@@ -29,6 +33,10 @@ const (
 	ConfigMapType = "ConfigMap"
 	// SecretType Secret Type
 	SecretType = "Secret"
+	// FieldRefType FieldRef Type
+	FieldRefType = "FieldRef"
+	// ResourceFieldRefType ResourceFieldRef Type
+	ResourceFieldRefType = "ResourceFieldRef"
 	// DefaultConfigMapName Default ConfigMap Name
 	DefaultConfigMapName = "testconfigmapname"
 	// DefaultSecretName Default Secret Name

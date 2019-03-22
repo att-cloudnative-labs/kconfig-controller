@@ -3,10 +3,12 @@ package kconfig
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
 	"github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
+	"github.com/gbraxton/kconfig/pkg/apis/validation"
 	"github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
 	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
 	kcscheme "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/scheme"
@@ -334,20 +336,16 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 	extConfigs := make([]ExternalResourceConfig, 0)
 	updatedEnvConfigs := make([]v1alpha1.EnvConfig, 0)
 	for _, envConfig := range origEnvConfigs {
-		switch envConfig.Type {
-		case "", "Value":
-			if err := validateValueEnvConfig(envConfig); err != nil {
-				klog.Warningf("Invalid EnvConfig: %s", err.Error())
-				continue
-			}
+		if err := validation.ValidateEnvConfig(envConfig); err != nil {
+			klog.Warningf("Invalid EnvConfig: %s", err.Error())
+			continue
+		}
+		switch strings.ToLower(envConfig.Type) {
+		case "", "value":
 			updatedEnvConfig := envConfig.DeepCopy()
 			updatedEnvConfig.Type = "Value"
 			updatedEnvConfigs = append(updatedEnvConfigs, *updatedEnvConfig)
-		case "ConfigMap":
-			if err := validateConfigMapEnvConfig(envConfig); err != nil {
-				klog.Warningf("Invalid EnvConfig: %s", err.Error())
-				continue
-			}
+		case "configmap":
 			var updatedEnvConfig *v1alpha1.EnvConfig
 			if envConfig.Value != nil {
 				*updatedRefs = true
@@ -379,11 +377,7 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 				updatedEnvConfig = envConfig.DeepCopy()
 			}
 			updatedEnvConfigs = append(updatedEnvConfigs, *updatedEnvConfig)
-		case "Secret":
-			if err := validateSecretEnvConfig(envConfig); err != nil {
-				klog.Warningf("Invalid EnvConfig: %s", err.Error())
-				continue
-			}
+		case "secret":
 			var updatedEnvConfig *v1alpha1.EnvConfig
 			if envConfig.Value != nil {
 				*updatedRefs = true
@@ -392,6 +386,7 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 				refKey, err := getSecretEnvConfigResourceKey(envConfig)
 				if err != nil {
 					klog.Warningf("Error processing EnvConfig: %s", err.Error())
+					continue
 				}
 				extConfig := ExternalResourceConfig{
 					ResourceType: "Secret",
@@ -409,6 +404,34 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 						},
 						Key:      refKey,
 						Optional: &optional,
+					},
+				}
+			} else {
+				updatedEnvConfig = envConfig.DeepCopy()
+			}
+			updatedEnvConfigs = append(updatedEnvConfigs, *updatedEnvConfig)
+		case "fieldref":
+			var updatedEnvConfig *v1alpha1.EnvConfig
+			if envConfig.Value != nil {
+				updatedEnvConfig = &v1alpha1.EnvConfig{
+					Type: "FieldRef",
+					Key:  envConfig.Key,
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: *envConfig.Value,
+					},
+				}
+			} else {
+				updatedEnvConfig = envConfig.DeepCopy()
+			}
+			updatedEnvConfigs = append(updatedEnvConfigs, *updatedEnvConfig)
+		case "resourcefieldref":
+			var updatedEnvConfig *v1alpha1.EnvConfig
+			if envConfig.Value != nil {
+				updatedEnvConfig = &v1alpha1.EnvConfig{
+					Type: "ResourceFieldRef",
+					Key:  envConfig.Key,
+					ResourceFieldRef: &corev1.ResourceFieldSelector{
+						Resource: *envConfig.Value,
 					},
 				}
 			} else {
@@ -452,85 +475,6 @@ func getSecretEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, error)
 		return envConfig.SecretKeyRef.Key, nil
 	}
 	return util.GetNewKeyReference(envConfig.Key)
-}
-
-func validateValueEnvConfig(envConfig v1alpha1.EnvConfig) error {
-	if len(envConfig.Key) == 0 {
-		return fmt.Errorf("EnvConfig must have Key")
-	}
-	if envConfig.Value == nil {
-		return fmt.Errorf("Value Type EnvConfig must have Value")
-	}
-	if envConfig.RefName != nil {
-		return fmt.Errorf("Value Type EnvConfig should not have RefName")
-	}
-	if envConfig.RefKey != nil {
-		return fmt.Errorf("Value Type EnvConfig should not have RefKey")
-	}
-	if envConfig.ConfigMapKeyRef != nil {
-		return fmt.Errorf("Value Type EnvConfig should not have ConfigMapKeyRef")
-	}
-	if envConfig.SecretKeyRef != nil {
-		return fmt.Errorf("Value Type EnvConfig should not have SecretKeyRef")
-	}
-	return nil
-}
-
-func validateConfigMapEnvConfig(envConfig v1alpha1.EnvConfig) error {
-	if len(envConfig.Key) == 0 {
-		return fmt.Errorf("EnvConfig must have Key")
-	}
-	if envConfig.SecretKeyRef != nil {
-		return fmt.Errorf("ConfigMap Type EnvConfig should not have SecretKeyRef")
-	}
-	// For Pre-existing ConfigMap EnvConfig
-	if envConfig.ConfigMapKeyRef != nil {
-		return validateExistingConfigMapEnvConfig(envConfig)
-	}
-	// For Non-pre-existing ConfigMap EnvConfig
-	if envConfig.Value == nil {
-		return fmt.Errorf("New ConfigMap EnvConfigs should have a value")
-	}
-	return nil
-}
-
-func validateExistingConfigMapEnvConfig(envConfig v1alpha1.EnvConfig) error {
-	if envConfig.RefName != nil {
-		return fmt.Errorf("New ConfigMap EnvConfigs should not have RefName")
-	}
-	if envConfig.RefKey != nil {
-		return fmt.Errorf("New ConfigMap EnvConfigs should not have RefKey")
-	}
-	return nil
-}
-
-// begin secret
-func validateSecretEnvConfig(envConfig v1alpha1.EnvConfig) error {
-	if len(envConfig.Key) == 0 {
-		return fmt.Errorf("EnvConfig must have Key")
-	}
-	if envConfig.ConfigMapKeyRef != nil {
-		return fmt.Errorf("Secret Type EnvConfig should not have ConfigMapKeyRef")
-	}
-	// For Pre-existing Secret EnvConfig
-	if envConfig.SecretKeyRef != nil {
-		return validateExistingSecretEnvConfig(envConfig)
-	}
-	// For Non-pre-existing Secret EnvConfig
-	if envConfig.Value == nil {
-		return fmt.Errorf("New Secret EnvConfigs should have a value")
-	}
-	return nil
-}
-
-func validateExistingSecretEnvConfig(envConfig v1alpha1.EnvConfig) error {
-	if envConfig.RefName != nil {
-		return fmt.Errorf("New Secret EnvConfigs should not have RefName")
-	}
-	if envConfig.RefKey != nil {
-		return fmt.Errorf("New Secret EnvConfigs should not have RefKey")
-	}
-	return nil
 }
 
 func (c *Controller) processExternalResourceConfigs(extConfigs []ExternalResourceConfig, namespace string) error {
@@ -623,17 +567,17 @@ func (c *Controller) createSecret(namespace, name string) (*corev1.Secret, error
 func buildKconfigEnv(level int, envRefsVersion int64, envConfigs []v1alpha1.EnvConfig) v1alpha1.KconfigEnvs {
 	envs := make([]corev1.EnvVar, 0)
 	for _, envConfig := range envConfigs {
-		switch envConfig.Type {
-		// Canonical key/value config case. Return existing envConfig and generic key/val env var
-		case "", "Value":
+		switch strings.ToLower(envConfig.Type) {
+		case "", "value":
 			envs = append(envs, corev1.EnvVar{Name: envConfig.Key, Value: *envConfig.Value})
-		// Configmap Value
-		case "ConfigMap":
+		case "configmap":
 			envs = append(envs, corev1.EnvVar{Name: envConfig.Key, ValueFrom: &corev1.EnvVarSource{ConfigMapKeyRef: envConfig.ConfigMapKeyRef}})
-		// Secret Value
-		case "Secret":
+		case "secret":
 			envs = append(envs, corev1.EnvVar{Name: envConfig.Key, ValueFrom: &corev1.EnvVarSource{SecretKeyRef: envConfig.SecretKeyRef}})
-			// Assumes type is valid so no default case
+		case "fieldref":
+			envs = append(envs, corev1.EnvVar{Name: envConfig.Key, ValueFrom: &corev1.EnvVarSource{FieldRef: envConfig.FieldRef}})
+		case "resourcefieldref":
+			envs = append(envs, corev1.EnvVar{Name: envConfig.Key, ValueFrom: &corev1.EnvVarSource{ResourceFieldRef: envConfig.ResourceFieldRef}})
 		}
 	}
 	return v1alpha1.KconfigEnvs{
