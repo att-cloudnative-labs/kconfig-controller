@@ -296,6 +296,27 @@ func TestValueKconfig(t *testing.T) {
 	f.run(key)
 }
 
+func TestValueKconfigWithEmptyType(t *testing.T) {
+	f := newFixture(t)
+
+	kc := testutil.ValueKconfig()
+	kc.Spec.EnvConfigs[0].Type = ""
+	kcb := testutil.KconfigBinding()
+	expectedkcupdate := testutil.ValueKconfig()
+	expectedkcbupdate := testutil.ValueKconfigBinding()
+
+	f.kconfigLister = append(f.kconfigLister, &kc)
+	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &kcb)
+
+	f.expectUpdateKconfigAction(&expectedkcupdate)
+	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+
+	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
+	f.run(key)
+}
+
 func TestConfigmapKconfig(t *testing.T) {
 	f := newFixture(t)
 

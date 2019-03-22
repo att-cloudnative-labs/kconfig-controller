@@ -2,6 +2,10 @@
 
 ## Development release
 
+0.5.1-BETA-1
+
+- Fix issue where EnvConfig with empty type was giving error and being discarded. Empty type field now defaults to "Value" type as before.
+
 0.5.0-BETA-1
 
 - FieldRef/ResourceFieldRef EnvConfig types added. Value field creates a FielfRef with just a fieldPath containing the value. Value field creates a ResourceFieldPath with just a 'resource' field containing the value.

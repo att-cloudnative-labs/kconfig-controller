@@ -19,7 +19,7 @@ func ValidateEnvConfig(envConfig v1alpha1.EnvConfig) error {
 		return err
 	}
 	switch strings.ToLower(envConfig.Type) {
-	case "value":
+	case "", "value":
 		if err := validateValueEnvConfig(envConfig); err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func ValidateEnvConfig(envConfig v1alpha1.EnvConfig) error {
 
 func validateEnvConfigType(envConfig v1alpha1.EnvConfig) error {
 	switch strings.ToLower(envConfig.Type) {
-	case "value", "configmap", "secret", "fieldref", "resourcefieldref":
+	case "", "value", "configmap", "secret", "fieldref", "resourcefieldref":
 		return nil
 	default:
 		return fmt.Errorf("invalid type: %s", envConfig.Type)
