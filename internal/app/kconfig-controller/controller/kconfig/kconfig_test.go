@@ -9,7 +9,7 @@ import (
 	kcfake "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/fake"
 	kcinformers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions"
 	testutil "github.com/gbraxton/kconfig/test/util"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -397,8 +397,7 @@ func TestAddConfigMapKconfig(t *testing.T) {
 	expectedkcupdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
 	expectedkcupdate.Spec.EnvRefsVersion++
 	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, testutil.DefaultConfigMapName)
-	expectedcmcreate := testutil.ConfigMap(testutil.DefaultConfigMapName)
-	expectedcmupdate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
+	expectedcmcreate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -407,7 +406,7 @@ func TestAddConfigMapKconfig(t *testing.T) {
 
 	f.expectUpdateKconfigAction(&expectedkcupdate)
 	f.expectCreateConfigMapAction(&expectedcmcreate)
-	f.expectUpdateConfigMapAction(&expectedcmupdate)
+	// f.expectUpdateConfigMapAction(&expectedcmupdate)
 	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
@@ -424,8 +423,7 @@ func TestAddConfigMapKconfigWithoutRefName(t *testing.T) {
 	expectedkcupdate := testutil.ConfigMapKconfig(configMapName)
 	expectedkcupdate.Spec.EnvRefsVersion++
 	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, configMapName)
-	expectedcmcreate := testutil.ConfigMap(configMapName)
-	expectedcmupdate := testutil.ConfigMapWithData(configMapName)
+	expectedcmcreate := testutil.ConfigMapWithData(configMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -434,7 +432,6 @@ func TestAddConfigMapKconfigWithoutRefName(t *testing.T) {
 
 	f.expectUpdateKconfigAction(&expectedkcupdate)
 	f.expectCreateConfigMapAction(&expectedcmcreate)
-	f.expectUpdateConfigMapAction(&expectedcmupdate)
 	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
@@ -515,8 +512,7 @@ func TestAddSecretKconfig(t *testing.T) {
 	expectedkcupdate := testutil.SecretKconfig(testutil.DefaultSecretName)
 	expectedkcupdate.Spec.EnvRefsVersion++
 	expectedkcbupdate := testutil.SecretKconfigBinding(1, testutil.DefaultSecretName)
-	expectedsecretcreate := testutil.Secret(testutil.DefaultSecretName)
-	expectedsecretupdate := testutil.SecretWithData(testutil.DefaultSecretName)
+	expectedsecretcreate := testutil.SecretWithData(testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -525,7 +521,6 @@ func TestAddSecretKconfig(t *testing.T) {
 
 	f.expectUpdateKconfigAction(&expectedkcupdate)
 	f.expectCreateSecretAction(&expectedsecretcreate)
-	f.expectUpdateSecretAction(&expectedsecretupdate)
 	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
@@ -542,8 +537,7 @@ func TestAddSecretKconfigWithoutRefName(t *testing.T) {
 	expectedkcupdate := testutil.SecretKconfig(secretName)
 	expectedkcupdate.Spec.EnvRefsVersion++
 	expectedkcbupdate := testutil.SecretKconfigBinding(1, secretName)
-	expectedsecretcreate := testutil.Secret(secretName)
-	expectedsecretupdate := testutil.SecretWithData(secretName)
+	expectedsecretcreate := testutil.SecretWithData(secretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
 	f.kbindingLister = append(f.kbindingLister, &kcb)
@@ -552,7 +546,6 @@ func TestAddSecretKconfigWithoutRefName(t *testing.T) {
 
 	f.expectUpdateKconfigAction(&expectedkcupdate)
 	f.expectCreateSecretAction(&expectedsecretcreate)
-	f.expectUpdateSecretAction(&expectedsecretupdate)
 	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)

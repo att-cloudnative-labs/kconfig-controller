@@ -2,6 +2,10 @@
 
 ## Development release
 
+0.6.0-BETA-1
+
+- ExternalResources (ConfigMaps/Secrets) are now updated in one kubernetes api call per resource. Previously, multiple value changes (or adds) would result in an attempt to update the secret or configmap for each change. This would create a conflict error forcing the remaining values to be updated in retries.
+
 0.5.1-BETA-1
 
 - Fix issue where EnvConfig with empty type was giving error and being discarded. Empty type field now defaults to "Value" type as before.

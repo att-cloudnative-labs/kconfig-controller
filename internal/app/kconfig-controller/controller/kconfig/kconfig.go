@@ -226,21 +226,15 @@ func (c *Controller) syncHandler(key string) error {
 	return nil
 }
 
-// ExternalResourceConfig configs with reference to external resource (configmap/secret)
-type ExternalResourceConfig struct {
-	ResourceType string
-	ResourceName string
-	ResourceKey  string
-	Value        string
-}
-
 func (c *Controller) processKconfig(kconfig *v1alpha1.Kconfig) error {
 	// updatedRefs boolean tracks if there was a value change to a configmap/secret.
 	// When true, the current Kconfig generation is set in the KconfigEnv of the KconfigBinding
 	// to force an update of the deployment since no change is in the EnvVars
 	updatedRefs := false
-	updatedEnvConfigs, extConfigs := extractExternalResourceConfigs(kconfig.Name, kconfig.Spec.EnvConfigs, &updatedRefs)
-	if err := c.processExternalResourceConfigs(extConfigs, kconfig.Namespace); err != nil {
+	externalActionCache := NewExternalActionCache()
+
+	updatedEnvConfigs := processEnvConfigValues(kconfig.Name, kconfig.Spec.EnvConfigs, &externalActionCache, &updatedRefs)
+	if err := c.ExecuteExternalActions(kconfig.Namespace, externalActionCache); err != nil {
 		return err
 	}
 
@@ -332,8 +326,7 @@ func (c *Controller) deleteHandler(obj interface{}) {
 	c.removeKconfigEnvsFromKconfigBindings(kc)
 }
 
-func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha1.EnvConfig, updatedRefs *bool) ([]v1alpha1.EnvConfig, []ExternalResourceConfig) {
-	extConfigs := make([]ExternalResourceConfig, 0)
+func processEnvConfigValues(kconfigName string, origEnvConfigs []v1alpha1.EnvConfig, externalActionCache *ExternalActionCache, updatedRefs *bool) []v1alpha1.EnvConfig {
 	updatedEnvConfigs := make([]v1alpha1.EnvConfig, 0)
 	for _, envConfig := range origEnvConfigs {
 		if err := validation.ValidateEnvConfig(envConfig); err != nil {
@@ -355,13 +348,11 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 				if err != nil {
 					klog.Warningf("Error processing EnvConfig: %s", err.Error())
 				}
-				extConfig := ExternalResourceConfig{
-					ResourceType: "ConfigMap",
-					ResourceName: refName,
-					ResourceKey:  refKey,
-					Value:        *envConfig.Value,
-				}
-				extConfigs = append(extConfigs, extConfig)
+
+				externalAction := ExternalAction{Key: refKey, Value: *envConfig.Value}
+				externalActionCacheKey := ExternalActionKeyFunc("configmap", refName)
+				externalActionCache.Put(externalActionCacheKey, externalAction)
+
 				updatedEnvConfig = &v1alpha1.EnvConfig{
 					Type: "ConfigMap",
 					Key:  envConfig.Key,
@@ -388,13 +379,11 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 					klog.Warningf("Error processing EnvConfig: %s", err.Error())
 					continue
 				}
-				extConfig := ExternalResourceConfig{
-					ResourceType: "Secret",
-					ResourceName: refName,
-					ResourceKey:  refKey,
-					Value:        *envConfig.Value,
-				}
-				extConfigs = append(extConfigs, extConfig)
+
+				externalAction := ExternalAction{Key: refKey, Value: *envConfig.Value}
+				externalActionCacheKey := ExternalActionKeyFunc("secret", refName)
+				externalActionCache.Put(externalActionCacheKey, externalAction)
+
 				updatedEnvConfig = &v1alpha1.EnvConfig{
 					Type: "Secret",
 					Key:  envConfig.Key,
@@ -440,7 +429,7 @@ func extractExternalResourceConfigs(kconfigName string, origEnvConfigs []v1alpha
 			updatedEnvConfigs = append(updatedEnvConfigs, *updatedEnvConfig)
 		}
 	}
-	return updatedEnvConfigs, extConfigs
+	return updatedEnvConfigs
 }
 
 func getConfigMapEnvConfigResourceName(kconfigName string, envConfig v1alpha1.EnvConfig, prefix string) string {
@@ -475,91 +464,6 @@ func getSecretEnvConfigResourceKey(envConfig v1alpha1.EnvConfig) (string, error)
 		return envConfig.SecretKeyRef.Key, nil
 	}
 	return util.GetNewKeyReference(envConfig.Key)
-}
-
-func (c *Controller) processExternalResourceConfigs(extConfigs []ExternalResourceConfig, namespace string) error {
-	for _, extConfig := range extConfigs {
-		switch extConfig.ResourceType {
-		case "ConfigMap":
-			if err := c.processConfigMapConfig(extConfig, namespace); err != nil {
-				return err
-			}
-		case "Secret":
-			if err := c.processSecretConfig(extConfig, namespace); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (c *Controller) processConfigMapConfig(extConfig ExternalResourceConfig, namespace string) error {
-	configmap, err := c.configmaplister.ConfigMaps(namespace).Get(extConfig.ResourceName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			configmap, err = c.createConfigMap(namespace, extConfig.ResourceName)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-	configmapCopy := configmap.DeepCopy()
-	if configmapCopy.Data == nil {
-		configmapCopy.Data = make(map[string]string)
-	}
-	configmapCopy.Data[extConfig.ResourceKey] = extConfig.Value
-	if !reflect.DeepEqual(configmapCopy, configmap) {
-		_, err = c.stdclient.CoreV1().ConfigMaps(namespace).Update(configmapCopy)
-	}
-	return err
-}
-
-func (c *Controller) processSecretConfig(extConfig ExternalResourceConfig, namespace string) error {
-	secret, err := c.secretlister.Secrets(namespace).Get(extConfig.ResourceName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			secret, err = c.createSecret(namespace, extConfig.ResourceName)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-	secretCopy := secret.DeepCopy()
-	dataBytes := []byte(extConfig.Value)
-	if secretCopy.Data == nil {
-		secretCopy.Data = make(map[string][]byte)
-	}
-	secretCopy.Data[extConfig.ResourceKey] = dataBytes
-	if !reflect.DeepEqual(secretCopy, secret) {
-		_, err = c.stdclient.CoreV1().Secrets(namespace).Update(secretCopy)
-	}
-	return err
-}
-
-func (c *Controller) createConfigMap(namespace, name string) (*corev1.ConfigMap, error) {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Data: map[string]string{},
-	}
-	return c.stdclient.CoreV1().ConfigMaps(namespace).Create(configMap)
-}
-
-func (c *Controller) createSecret(namespace, name string) (*corev1.Secret, error) {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Data: map[string][]byte{},
-	}
-	return c.stdclient.CoreV1().Secrets(namespace).Create(secret)
 }
 
 // Assumes the EnvConfig Type is valid and all external references

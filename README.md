@@ -61,7 +61,7 @@ The first envConfig is a 'Value' type. An empty type field implies a 'Value' typ
 ## Build
 
 ```bash
-docker build -f build/Dockerfile -t docker-registry.aeg.cloud/common-system/kconfig-controller:v0.5.1-beta-1 .
+docker build -f build/Dockerfile -t docker-registry.aeg.cloud/common-system/kconfig-controller:v0.6.0-beta-1 .
 ```
 
 ## Installation
