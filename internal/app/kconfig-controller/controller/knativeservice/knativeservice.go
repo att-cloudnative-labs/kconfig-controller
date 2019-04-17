@@ -1,82 +1,82 @@
-package deployment
+package knativeservice
 
 import (
 	"fmt"
 	"time"
 
-	constants "github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
-	kconfigv1alpha1 "github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
-	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
-	kcscheme "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/scheme"
-	informers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
-	listers "github.com/gbraxton/kconfig/pkg/client/listers/kconfigcontroller/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	appsinformers "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
-	appslisters "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+
+	constants "github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
+	kcv1alpha1 "github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
+	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
+	kcinformers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
+	kclisters "github.com/gbraxton/kconfig/pkg/client/listers/kconfigcontroller/v1alpha1"
+	knv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	knclientset "github.com/knative/serving/pkg/client/clientset/versioned"
+	knscheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
+	kninformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
+	knlisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 // Controller controller object
 type Controller struct {
-	recorder record.EventRecorder
-
-	stdclient kubernetes.Interface
-	kcclient  clientset.Interface
-
-	deploymentsLister    appslisters.DeploymentLister
-	kconfigBindingLister listers.KconfigBindingLister
-
-	deploymentsSynced     cache.InformerSynced
-	kconfigBindingsSynced cache.InformerSynced
-
-	workqueue workqueue.RateLimitingInterface
+	recorder             record.EventRecorder
+	stdclient            kubernetes.Interface
+	knclient             knclientset.Interface
+	kcclient             clientset.Interface
+	kserviceLister       knlisters.ServiceLister
+	kconfigBindingLister kclisters.KconfigBindingLister
+	kserviceSynced       cache.InformerSynced
+	workqueue            workqueue.RateLimitingInterface
 }
 
 // NewController returns a new controller object
 func NewController(
 	stdclient kubernetes.Interface,
+	knclient knclientset.Interface,
 	kcclient clientset.Interface,
-	deploymentInformer appsinformers.DeploymentInformer,
-	kbindingInformer informers.KconfigBindingInformer) *Controller {
+	kserviceInformer kninformers.ServiceInformer,
+	kconfigBindingInformer kcinformers.KconfigBindingInformer) *Controller {
 
-	runtime.Must(scheme.AddToScheme(kcscheme.Scheme))
+	// runtime.Must(scheme.AddToScheme(knscheme.Scheme))
+	runtime.Must(knscheme.AddToScheme(scheme.Scheme))
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&event.EventSinkImpl{Interface: stdclient.CoreV1().Events("")})
 
 	controller := &Controller{
-		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "Kconfig-Deployment-Controller"}),
-		stdclient:             stdclient,
-		kcclient:              kcclient,
-		deploymentsLister:     deploymentInformer.Lister(),
-		kconfigBindingLister:  kbindingInformer.Lister(),
-		deploymentsSynced:     deploymentInformer.Informer().HasSynced,
-		kconfigBindingsSynced: kbindingInformer.Informer().HasSynced,
-		workqueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Deployment"),
+		recorder:             eventBroadcaster.NewRecorder(knscheme.Scheme, corev1.EventSource{Component: "Kconfig-KnativeService-Controller"}),
+		stdclient:            stdclient,
+		knclient:             knclient,
+		kcclient:             kcclient,
+		kserviceLister:       kserviceInformer.Lister(),
+		kconfigBindingLister: kconfigBindingInformer.Lister(),
+		kserviceSynced:       kserviceInformer.Informer().HasSynced,
+		workqueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Service"),
 	}
 
 	klog.Info("Setting up event handlers")
-	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueDeployment,
+	kserviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.enqueueKService,
 		UpdateFunc: func(old, new interface{}) {
-			controller.enqueueDeployment(new)
+			controller.enqueueKService(new)
 		},
 	})
 	return controller
 }
 
-func (c *Controller) enqueueDeployment(obj interface{}) {
+func (c *Controller) enqueueKService(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -95,11 +95,11 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting Deployment controller")
+	klog.Info("Starting KnativeService controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced, c.kconfigBindingsSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.kserviceSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -173,7 +173,6 @@ func (c *Controller) processNextWorkItem() bool {
 		runtime.HandleError(err)
 		return true
 	}
-
 	return true
 }
 
@@ -187,35 +186,35 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get the Deployment resource with this namespace/name
-	deployment, err := c.deploymentsLister.Deployments(namespace).Get(name)
+	// Get the KnativeService resource with this namespace/name
+	kservice, err := c.kserviceLister.Services(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("deployment '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("knativeservice '%s' in work queue no longer exists", key))
 			return nil
 		}
 		return err
 	}
 
-	// If the deployment doesn't have the kconfig annotation, disregard
-	if deployment.Annotations[constants.KconfigEnabledDeploymentAnnotation] != "true" {
+	// If the knativeService doesn't have the kconfig env annotation, disregard
+	if kservice.Annotations[constants.KconfigEnabledDeploymentAnnotation] != "true" {
 		return nil
 	}
 
-	if err = c.handleDeployment(deployment); err != nil {
+	if err = c.handleKnativeService(kservice); err != nil {
 		return err
 	}
 
-	c.recorder.Event(deployment, corev1.EventTypeNormal, constants.SuccessSynced, constants.MessageDeploymentResourceSynced)
+	c.recorder.Event(kservice, corev1.EventTypeNormal, constants.SuccessSynced, constants.MessageKnativeServiceResourceSynced)
 	return nil
 }
 
-func (c *Controller) handleDeployment(deployment *appsv1.Deployment) error {
-	namespace := deployment.Namespace
-	name := deployment.Name
+func (c *Controller) handleKnativeService(knativeService *knv1alpha1.Service) error {
+	namespace := knativeService.Namespace
+	name := knativeService.Name
 	kconfigbinding, err := c.kconfigBindingLister.KconfigBindings(namespace).Get(name)
 	if err != nil && errors.IsNotFound(err) {
-		kconfigbinding, err = c.createKconfigBinding(deployment)
+		kconfigbinding, err = c.createKconfigBinding(knativeService)
 		if err != nil {
 			return err
 		}
@@ -228,36 +227,36 @@ func (c *Controller) handleDeployment(deployment *appsv1.Deployment) error {
 	return err
 }
 
-func (c *Controller) createKconfigBinding(deployment *appsv1.Deployment) (*kconfigv1alpha1.KconfigBinding, error) {
-	namespace := deployment.Namespace
-	name := deployment.Name
-	kconfigbinding := &kconfigv1alpha1.KconfigBinding{
+func (c *Controller) createKconfigBinding(knativeService *knv1alpha1.Service) (*kcv1alpha1.KconfigBinding, error) {
+	namespace := knativeService.Namespace
+	name := knativeService.Name
+	kconfigbinding := &kcv1alpha1.KconfigBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: kconfigv1alpha1.SchemeGroupVersion.String(),
+			APIVersion: kcv1alpha1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    deployment.Labels,
+			Labels:    knativeService.Labels,
 		},
-		Spec: kconfigv1alpha1.KconfigBindingSpec{
-			KconfigEnvsMap: make(map[string]kconfigv1alpha1.KconfigEnvs),
+		Spec: kcv1alpha1.KconfigBindingSpec{
+			KconfigEnvsMap: make(map[string]kcv1alpha1.KconfigEnvs),
 		},
 	}
 	return c.kcclient.KconfigcontrollerV1alpha1().KconfigBindings(namespace).Create(kconfigbinding)
 }
 
 func (c *Controller) deleteHandler(obj interface{}) {
-	d, ok := obj.(*appsv1.Deployment)
+	d, ok := obj.(*knv1alpha1.Service)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			runtime.HandleError(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
-		d, ok = tombstone.Obj.(*appsv1.Deployment)
+		d, ok = tombstone.Obj.(*knv1alpha1.Service)
 		if !ok {
-			runtime.HandleError(fmt.Errorf("Tombstone contained object that is not a Deployment %#v", obj))
+			runtime.HandleError(fmt.Errorf("Tombstone contained object that is not a KnativeService %#v", obj))
 			return
 		}
 	}

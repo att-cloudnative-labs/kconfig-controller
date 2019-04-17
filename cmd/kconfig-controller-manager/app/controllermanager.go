@@ -8,11 +8,14 @@ import (
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/deployment"
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/kconfig"
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/kconfigbinding"
+	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/knativeservice"
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/server"
 	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
+	knclientset "github.com/knative/serving/pkg/client/clientset/versioned"
 
 	// _ "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/scheme"
 	informers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions"
+	kninformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -57,8 +60,14 @@ func run(cmd *cobra.Command, args []string) {
 		klog.Fatalf("Error building kconfig clientset: %s", err.Error())
 	}
 
+	knativeClient, err := knclientset.NewForConfig(cfg)
+	if err != nil {
+		klog.Fatalf("Error building knative clientset: %s", err.Error())
+	}
+
 	stdInformerFactory := kubeinformers.NewSharedInformerFactory(stdClient, time.Second*30)
 	kconfigInformerFactory := informers.NewSharedInformerFactory(kconfigClient, time.Second*30)
+	knativeInformerFactory := kninformers.NewSharedInformerFactory(knativeClient, time.Second*30)
 
 	kconfigcontroller := kconfig.NewController(
 		stdClient,
@@ -85,12 +94,22 @@ func run(cmd *cobra.Command, args []string) {
 		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KconfigBindings(),
 	)
 
+	knativeServiceController := knativeservice.NewController(
+		stdClient,
+		knativeClient,
+		kconfigClient,
+		knativeInformerFactory.Serving().V1alpha1().Services(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KconfigBindings(),
+	)
+
 	go stdInformerFactory.Start(stopCh)
 	go kconfigInformerFactory.Start(stopCh)
+	go knativeInformerFactory.Start(stopCh)
 
 	go kconfigcontroller.Run(4, stopCh)
 	go kconfigbindingcontroller.Run(4, stopCh)
 	go deploymentcontroller.Run(4, stopCh)
+	go knativeServiceController.Run(4, stopCh)
 
 	serverCfg := server.Cfg{Port: 8080}
 	server := server.NewServer(serverCfg)
