@@ -51,16 +51,54 @@ spec:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: kconfigbindings.kconfigcontroller.atteg.com
+  name: deploymentbindings.kconfigcontroller.atteg.com
 spec:
   group: kconfigcontroller.atteg.com
   names:
-    kind: KconfigBinding
-    listKind: KconfigBindingList
-    plural: kconfigbindings
-    shortNames:
-    - kcb
-    singular: kconfigbinding
+    kind: DeploymentBinding
+    listKind: DeplolymentBindingList
+    plural: deploymentbindings
+    singular: deploymentbinding
+  scope: Namespaced
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+  subresources:
+    status: {}
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: statefulsetbindings.kconfigcontroller.atteg.com
+spec:
+  group: kconfigcontroller.atteg.com
+  names:
+    kind: StatefulSetBinding
+    listKind: StatefulSetBindingList
+    plural: statefulsetbindings
+    singular: statefulsetbinding
+  scope: Namespaced
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+  subresources:
+    status: {}
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: knativeservicebindings.kconfigcontroller.atteg.com
+spec:
+  group: kconfigcontroller.atteg.com
+  names:
+    kind: KnativeServiceBinding
+    listKind: KnativeServiceBindingList
+    plural: knativeservicebindings
+    singular: knativeservicebinding
   scope: Namespaced
   version: v1alpha1
   versions:

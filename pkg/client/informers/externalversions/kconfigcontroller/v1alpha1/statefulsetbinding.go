@@ -31,59 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// KconfigBindingInformer provides access to a shared informer and lister for
-// KconfigBindings.
-type KconfigBindingInformer interface {
+// StatefulSetBindingInformer provides access to a shared informer and lister for
+// StatefulSetBindings.
+type StatefulSetBindingInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.KconfigBindingLister
+	Lister() v1alpha1.StatefulSetBindingLister
 }
 
-type kconfigBindingInformer struct {
+type statefulSetBindingInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewKconfigBindingInformer constructs a new informer for KconfigBinding type.
+// NewStatefulSetBindingInformer constructs a new informer for StatefulSetBinding type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewKconfigBindingInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredKconfigBindingInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewStatefulSetBindingInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredStatefulSetBindingInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredKconfigBindingInformer constructs a new informer for KconfigBinding type.
+// NewFilteredStatefulSetBindingInformer constructs a new informer for StatefulSetBinding type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredKconfigBindingInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredStatefulSetBindingInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KconfigcontrollerV1alpha1().KconfigBindings(namespace).List(options)
+				return client.KconfigcontrollerV1alpha1().StatefulSetBindings(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KconfigcontrollerV1alpha1().KconfigBindings(namespace).Watch(options)
+				return client.KconfigcontrollerV1alpha1().StatefulSetBindings(namespace).Watch(options)
 			},
 		},
-		&kconfigcontrollerv1alpha1.KconfigBinding{},
+		&kconfigcontrollerv1alpha1.StatefulSetBinding{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *kconfigBindingInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredKconfigBindingInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *statefulSetBindingInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredStatefulSetBindingInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *kconfigBindingInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&kconfigcontrollerv1alpha1.KconfigBinding{}, f.defaultInformer)
+func (f *statefulSetBindingInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&kconfigcontrollerv1alpha1.StatefulSetBinding{}, f.defaultInformer)
 }
 
-func (f *kconfigBindingInformer) Lister() v1alpha1.KconfigBindingLister {
-	return v1alpha1.NewKconfigBindingLister(f.Informer().GetIndexer())
+func (f *statefulSetBindingInformer) Lister() v1alpha1.StatefulSetBindingLister {
+	return v1alpha1.NewStatefulSetBindingLister(f.Informer().GetIndexer())
 }

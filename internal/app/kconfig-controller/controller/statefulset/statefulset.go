@@ -1,81 +1,82 @@
-package knativeservice
+package statefulset
 
 import (
 	"fmt"
 	"time"
 
+	constants "github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
+	kconfigv1alpha1 "github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
+	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
+	kcscheme "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/scheme"
+	informers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
+	listers "github.com/gbraxton/kconfig/pkg/client/listers/kconfigcontroller/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	appsinformers "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	event "k8s.io/client-go/kubernetes/typed/core/v1"
+	appslisters "k8s.io/client-go/listers/apps/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-
-	constants "github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
-	kcv1alpha1 "github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
-	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
-	kcinformers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
-	kclisters "github.com/gbraxton/kconfig/pkg/client/listers/kconfigcontroller/v1alpha1"
-	knv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	knclientset "github.com/knative/serving/pkg/client/clientset/versioned"
-	knscheme "github.com/knative/serving/pkg/client/clientset/versioned/scheme"
-	kninformers "github.com/knative/serving/pkg/client/informers/externalversions/serving/v1alpha1"
-	knlisters "github.com/knative/serving/pkg/client/listers/serving/v1alpha1"
 )
 
 // Controller controller object
 type Controller struct {
-	recorder                    record.EventRecorder
-	stdclient                   kubernetes.Interface
-	knclient                    knclientset.Interface
-	kcclient                    clientset.Interface
-	kserviceLister              knlisters.ServiceLister
-	knativeServiceBindingLister kclisters.KnativeServiceBindingLister
-	kserviceSynced              cache.InformerSynced
-	workqueue                   workqueue.RateLimitingInterface
+	recorder record.EventRecorder
+
+	stdclient kubernetes.Interface
+	kcclient  clientset.Interface
+
+	statefulSetsLister       appslisters.StatefulSetLister
+	statefulSetBindingLister listers.StatefulSetBindingLister
+
+	statefulSetsSynced        cache.InformerSynced
+	statefulSetBindingsSynced cache.InformerSynced
+
+	workqueue workqueue.RateLimitingInterface
 }
 
 // NewController returns a new controller object
 func NewController(
 	stdclient kubernetes.Interface,
-	knclient knclientset.Interface,
 	kcclient clientset.Interface,
-	kserviceInformer kninformers.ServiceInformer,
-	knativeServiceBindingInformer kcinformers.KnativeServiceBindingInformer) *Controller {
+	statefulSetInformer appsinformers.StatefulSetInformer,
+	statefulSetBindingInformer informers.StatefulSetBindingInformer) *Controller {
 
-	// runtime.Must(scheme.AddToScheme(knscheme.Scheme))
-	runtime.Must(knscheme.AddToScheme(knscheme.Scheme))
+	runtime.Must(scheme.AddToScheme(kcscheme.Scheme))
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&event.EventSinkImpl{Interface: stdclient.CoreV1().Events("")})
 
 	controller := &Controller{
-		recorder:                    eventBroadcaster.NewRecorder(knscheme.Scheme, corev1.EventSource{Component: "Kconfig-KnativeService-Controller"}),
-		stdclient:                   stdclient,
-		knclient:                    knclient,
-		kcclient:                    kcclient,
-		kserviceLister:              kserviceInformer.Lister(),
-		knativeServiceBindingLister: knativeServiceBindingInformer.Lister(),
-		kserviceSynced:              kserviceInformer.Informer().HasSynced,
-		workqueue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Service"),
+		recorder:                  eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "Kconfig-StatefulSet-Controller"}),
+		stdclient:                 stdclient,
+		kcclient:                  kcclient,
+		statefulSetsLister:        statefulSetInformer.Lister(),
+		statefulSetBindingLister:  statefulSetBindingInformer.Lister(),
+		statefulSetsSynced:        statefulSetInformer.Informer().HasSynced,
+		statefulSetBindingsSynced: statefulSetBindingInformer.Informer().HasSynced,
+		workqueue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "StatefulSet"),
 	}
 
 	klog.Info("Setting up event handlers")
-	kserviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.enqueueKService,
+	statefulSetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: controller.enqueueStatefulSet,
 		UpdateFunc: func(old, new interface{}) {
-			controller.enqueueKService(new)
+			controller.enqueueStatefulSet(new)
 		},
 	})
 	return controller
 }
 
-func (c *Controller) enqueueKService(obj interface{}) {
+func (c *Controller) enqueueStatefulSet(obj interface{}) {
 	var key string
 	var err error
 	if key, err = cache.MetaNamespaceKeyFunc(obj); err != nil {
@@ -94,11 +95,11 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting KnativeService controller")
+	klog.Info("Starting StatefulSet controller")
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.kserviceSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.statefulSetsSynced, c.statefulSetBindingsSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -172,6 +173,7 @@ func (c *Controller) processNextWorkItem() bool {
 		runtime.HandleError(err)
 		return true
 	}
+
 	return true
 }
 
@@ -185,92 +187,92 @@ func (c *Controller) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get the KnativeService resource with this namespace/name
-	kservice, err := c.kserviceLister.Services(namespace).Get(name)
+	// Get the StatefulSet resource with this namespace/name
+	statefulSet, err := c.statefulSetsLister.StatefulSets(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("knativeservice '%s' in work queue no longer exists", key))
+			runtime.HandleError(fmt.Errorf("statefulSet '%s' in work queue no longer exists", key))
 			return nil
 		}
 		return err
 	}
 
-	// If the knativeService doesn't have the kconfig env annotation, disregard
-	if kservice.Annotations[constants.KconfigEnabledDeploymentAnnotation] != "true" {
+	// If the statefulSet doesn't have the kconfig annotation, disregard
+	if statefulSet.Annotations[constants.KconfigEnabledDeploymentAnnotation] != "true" {
 		return nil
 	}
 
-	if err = c.handleKnativeService(kservice); err != nil {
+	if err = c.handleStatefulSet(statefulSet); err != nil {
 		return err
 	}
 
-	c.recorder.Event(kservice, corev1.EventTypeNormal, constants.SuccessSynced, constants.MessageKnativeServiceResourceSynced)
+	c.recorder.Event(statefulSet, corev1.EventTypeNormal, constants.SuccessSynced, constants.MessageStatefulSetResourceSynced)
 	return nil
 }
 
-func (c *Controller) handleKnativeService(knativeService *knv1alpha1.Service) error {
-	namespace := knativeService.Namespace
-	name := knativeService.Name
-	knativeServicebinding, err := c.knativeServiceBindingLister.KnativeServiceBindings(namespace).Get(name)
+func (c *Controller) handleStatefulSet(statefulSet *appsv1.StatefulSet) error {
+	namespace := statefulSet.Namespace
+	name := statefulSet.Name
+	statefulSetBinding, err := c.statefulSetBindingLister.StatefulSetBindings(namespace).Get(name)
 	if err != nil && errors.IsNotFound(err) {
-		knativeServicebinding, err = c.createKnativeServiceBinding(knativeService)
+		statefulSetBinding, err = c.createStatefulSetBinding(statefulSet)
 		if err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
-	knativeServiceBindingCopy := knativeServicebinding.DeepCopy()
-	knativeServiceBindingCopy.SetLabels(knativeServicebinding.GetLabels())
-	_, err = c.kcclient.KconfigcontrollerV1alpha1().KnativeServiceBindings(namespace).Update(knativeServiceBindingCopy)
+	statefulSetBindingCopy := statefulSetBinding.DeepCopy()
+	statefulSetBindingCopy.SetLabels(statefulSetBinding.GetLabels())
+	_, err = c.kcclient.KconfigcontrollerV1alpha1().StatefulSetBindings(namespace).Update(statefulSetBindingCopy)
 	return err
 }
 
-func (c *Controller) createKnativeServiceBinding(knativeService *knv1alpha1.Service) (*kcv1alpha1.KnativeServiceBinding, error) {
-	namespace := knativeService.Namespace
-	name := knativeService.Name
-	knativeServiceBinding := &kcv1alpha1.KnativeServiceBinding{
+func (c *Controller) createStatefulSetBinding(statefulSet *appsv1.StatefulSet) (*kconfigv1alpha1.StatefulSetBinding, error) {
+	namespace := statefulSet.Namespace
+	name := statefulSet.Name
+	statefulSetBinding := &kconfigv1alpha1.StatefulSetBinding{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: kcv1alpha1.SchemeGroupVersion.String(),
-			Kind:       "KnativeServiceBinding",
+			APIVersion: kconfigv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "StatefulSetBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels:    knativeService.Labels,
+			Labels:    statefulSet.Labels,
 		},
-		Spec: kcv1alpha1.KconfigBindingSpec{
-			KconfigEnvsMap: make(map[string]kcv1alpha1.KconfigEnvs),
+		Spec: kconfigv1alpha1.KconfigBindingSpec{
+			KconfigEnvsMap: make(map[string]kconfigv1alpha1.KconfigEnvs),
 		},
 	}
-	return c.kcclient.KconfigcontrollerV1alpha1().KnativeServiceBindings(namespace).Create(knativeServiceBinding)
+	return c.kcclient.KconfigcontrollerV1alpha1().StatefulSetBindings(namespace).Create(statefulSetBinding)
 }
 
 func (c *Controller) deleteHandler(obj interface{}) {
-	d, ok := obj.(*knv1alpha1.Service)
+	d, ok := obj.(*appsv1.StatefulSet)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			runtime.HandleError(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
 			return
 		}
-		d, ok = tombstone.Obj.(*knv1alpha1.Service)
+		d, ok = tombstone.Obj.(*appsv1.StatefulSet)
 		if !ok {
-			runtime.HandleError(fmt.Errorf("Tombstone contained object that is not a KnativeService %#v", obj))
+			runtime.HandleError(fmt.Errorf("Tombstone contained object that is not a StatefulSet %#v", obj))
 			return
 		}
 	}
-	klog.Infof("Deleting knativeServiceBinding %s", d.Name)
-	ksb, err := c.knativeServiceBindingLister.KnativeServiceBindings(d.Namespace).Get(d.Name)
+	klog.Infof("Deleting statefulSetBinding %s", d.Name)
+	kcb, err := c.statefulSetBindingLister.StatefulSetBindings(d.Namespace).Get(d.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return
 		}
-		runtime.HandleError(fmt.Errorf("Error removing corresponding knativeServiceBinding: %s", err.Error()))
+		runtime.HandleError(fmt.Errorf("Error removing corresponding statefulSetBinding: %s", err.Error()))
 		return
 	}
-	err = c.kcclient.KconfigcontrollerV1alpha1().KnativeServiceBindings(ksb.Namespace).Delete(ksb.Name, &metav1.DeleteOptions{})
+	err = c.kcclient.KconfigcontrollerV1alpha1().StatefulSetBindings(kcb.Namespace).Delete(kcb.Name, &metav1.DeleteOptions{})
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("Error removing corresponding knativeServiceBinding: %s", err.Error()))
+		runtime.HandleError(fmt.Errorf("Error removing corresponding statefulSetBinding: %s", err.Error()))
 	}
 }

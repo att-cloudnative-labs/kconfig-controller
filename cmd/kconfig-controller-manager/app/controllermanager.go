@@ -6,9 +6,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/deployment"
+	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/deploymentbinding"
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/kconfig"
-	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/kconfigbinding"
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/knativeservice"
+	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/knativeservicebinding"
+	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/statefulset"
+	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller/statefulsetbinding"
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/server"
 	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
 	knclientset "github.com/knative/serving/pkg/client/clientset/versioned"
@@ -69,29 +72,46 @@ func run(cmd *cobra.Command, args []string) {
 	kconfigInformerFactory := informers.NewSharedInformerFactory(kconfigClient, time.Second*30)
 	knativeInformerFactory := kninformers.NewSharedInformerFactory(knativeClient, time.Second*30)
 
-	kconfigcontroller := kconfig.NewController(
-		stdClient,
-		kconfigClient,
-		stdInformerFactory.Core().V1().ConfigMaps(),
-		stdInformerFactory.Core().V1().Secrets(),
-		kconfigInformerFactory.Kconfigcontroller().V1alpha1().Kconfigs(),
-		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KconfigBindings(),
-	)
-
-	kconfigbindingcontroller := kconfigbinding.NewController(
+	deploymentBindingController := deploymentbinding.NewController(
 		stdClient,
 		kconfigClient,
 		stdInformerFactory.Core().V1().ConfigMaps(),
 		stdInformerFactory.Core().V1().Secrets(),
 		stdInformerFactory.Apps().V1().Deployments(),
-		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KconfigBindings(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().DeploymentBindings(),
 	)
 
-	deploymentcontroller := deployment.NewController(
+	statefulSetBindingController := statefulsetbinding.NewController(
+		stdClient,
+		kconfigClient,
+		stdInformerFactory.Core().V1().ConfigMaps(),
+		stdInformerFactory.Core().V1().Secrets(),
+		stdInformerFactory.Apps().V1().StatefulSets(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().StatefulSetBindings(),
+	)
+
+	knativeServiceBindingController := knativeservicebinding.NewController(
+		stdClient,
+		kconfigClient,
+		knativeClient,
+		stdInformerFactory.Core().V1().ConfigMaps(),
+		stdInformerFactory.Core().V1().Secrets(),
+		knativeInformerFactory.Serving().V1alpha1().Services(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KnativeServiceBindings(),
+	)
+
+	deploymentController := deployment.NewController(
 		stdClient,
 		kconfigClient,
 		stdInformerFactory.Apps().V1().Deployments(),
-		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KconfigBindings(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().DeploymentBindings(),
+	)
+
+	statefulSetController := statefulset.NewController(
+		stdClient,
+		kconfigClient,
+		stdInformerFactory.Apps().V1().StatefulSets(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().StatefulSetBindings(),
 	)
 
 	knativeServiceController := knativeservice.NewController(
@@ -99,17 +119,33 @@ func run(cmd *cobra.Command, args []string) {
 		knativeClient,
 		kconfigClient,
 		knativeInformerFactory.Serving().V1alpha1().Services(),
-		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KconfigBindings(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KnativeServiceBindings(),
+	)
+
+	kconfigController := kconfig.NewController(
+		stdClient,
+		kconfigClient,
+		stdInformerFactory.Core().V1().ConfigMaps(),
+		stdInformerFactory.Core().V1().Secrets(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().Kconfigs(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().DeploymentBindings(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().StatefulSetBindings(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KnativeServiceBindings(),
 	)
 
 	go stdInformerFactory.Start(stopCh)
 	go kconfigInformerFactory.Start(stopCh)
 	go knativeInformerFactory.Start(stopCh)
 
-	go kconfigcontroller.Run(4, stopCh)
-	go kconfigbindingcontroller.Run(4, stopCh)
-	go deploymentcontroller.Run(4, stopCh)
-	go knativeServiceController.Run(4, stopCh)
+	go deploymentBindingController.Run(2, stopCh)
+	go statefulSetBindingController.Run(2, stopCh)
+	go knativeServiceBindingController.Run(2, stopCh)
+
+	go deploymentController.Run(2, stopCh)
+	go statefulSetController.Run(2, stopCh)
+	go knativeServiceController.Run(2, stopCh)
+
+	go kconfigController.Run(2, stopCh)
 
 	serverCfg := server.Cfg{Port: 8080}
 	server := server.NewServer(serverCfg)
