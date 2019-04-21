@@ -29,7 +29,6 @@ type KconfigcontrollerV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	DeploymentBindingsGetter
 	KconfigsGetter
-	KconfigBindingsGetter
 	KnativeServiceBindingsGetter
 	StatefulSetBindingsGetter
 }
@@ -45,10 +44,6 @@ func (c *KconfigcontrollerV1alpha1Client) DeploymentBindings(namespace string) D
 
 func (c *KconfigcontrollerV1alpha1Client) Kconfigs(namespace string) KconfigInterface {
 	return newKconfigs(c, namespace)
-}
-
-func (c *KconfigcontrollerV1alpha1Client) KconfigBindings(namespace string) KconfigBindingInterface {
-	return newKconfigBindings(c, namespace)
 }
 
 func (c *KconfigcontrollerV1alpha1Client) KnativeServiceBindings(namespace string) KnativeServiceBindingInterface {

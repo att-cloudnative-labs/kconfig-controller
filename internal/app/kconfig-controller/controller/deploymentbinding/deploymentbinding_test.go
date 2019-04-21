@@ -1,4 +1,4 @@
-package kconfigbinding
+package deploymentbinding
 
 import (
 	"reflect"
@@ -33,7 +33,7 @@ type fixture struct {
 	configmapLister  []*v1.ConfigMap
 	secretLister     []*v1.Secret
 	deploymentLister []*appsv1.Deployment
-	kbindingLister   []*v1alpha1.KconfigBinding
+	kbindingLister   []*v1alpha1.DeploymentBinding
 
 	// Actions expected to happen on the client. Objects from here are also
 	// preloaded into NewSimpleFake.
@@ -55,28 +55,28 @@ func (f *fixture) newController() (*Controller, kcinformers.SharedInformerFactor
 	f.stdclient = stdfake.NewSimpleClientset(f.stdobjects...)
 	f.kcclient = kcfake.NewSimpleClientset(f.kcobjects...)
 
-	stdinformers := stdinformers.NewSharedInformerFactory(f.stdclient, 0)
-	kcinformers := kcinformers.NewSharedInformerFactory(f.kcclient, 0)
+	stdInformers := stdinformers.NewSharedInformerFactory(f.stdclient, 0)
+	kcInformers := kcinformers.NewSharedInformerFactory(f.kcclient, 0)
 
-	c := NewController(f.stdclient, f.kcclient, stdinformers.Core().V1().ConfigMaps(), stdinformers.Core().V1().Secrets(), stdinformers.Apps().V1().Deployments(), kcinformers.Kconfigcontroller().V1alpha1().KconfigBindings())
+	c := NewController(f.stdclient, f.kcclient, stdInformers.Core().V1().ConfigMaps(), stdInformers.Core().V1().Secrets(), stdInformers.Apps().V1().Deployments(), kcInformers.Kconfigcontroller().V1alpha1().DeploymentBindings())
 	c.recorder = &record.FakeRecorder{}
 	c.configmapsSynced = alwaysReady
 	c.secretsSynced = alwaysReady
 	c.deploymentsSynced = alwaysReady
-	c.kconfigBindingsSynced = alwaysReady
+	c.deploymentBindingsSynced = alwaysReady
 	for _, cm := range f.configmapLister {
-		stdinformers.Core().V1().ConfigMaps().Informer().GetIndexer().Add(cm)
+		_ = stdInformers.Core().V1().ConfigMaps().Informer().GetIndexer().Add(cm)
 	}
 	for _, sec := range f.secretLister {
-		stdinformers.Core().V1().Secrets().Informer().GetIndexer().Add(sec)
+		_ = stdInformers.Core().V1().Secrets().Informer().GetIndexer().Add(sec)
 	}
 	for _, dep := range f.deploymentLister {
-		stdinformers.Apps().V1().Deployments().Informer().GetIndexer().Add(dep)
+		_ = stdInformers.Apps().V1().Deployments().Informer().GetIndexer().Add(dep)
 	}
 	for _, kcb := range f.kbindingLister {
-		kcinformers.Kconfigcontroller().V1alpha1().KconfigBindings().Informer().GetIndexer().Add(kcb)
+		_ = kcInformers.Kconfigcontroller().V1alpha1().DeploymentBindings().Informer().GetIndexer().Add(kcb)
 	}
-	return c, kcinformers, stdinformers, nil
+	return c, kcInformers, stdInformers, nil
 }
 
 func (f *fixture) runExpectError(kcbName string, startInformers bool) {
@@ -88,15 +88,15 @@ func (f *fixture) run(kcbName string) {
 }
 
 func (f *fixture) runSync(kcbName string, startInformers bool, expectError bool) {
-	c, kcinformers, stdinformers, err := f.newController()
+	c, kcInformers, stdInformers, err := f.newController()
 	if err != nil {
-		f.t.Fatalf("error creating KconfigBinding controller: %v", err)
+		f.t.Fatalf("error creating DeploymentBinding controller: %v", err)
 	}
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
-		kcinformers.Start(stopCh)
-		stdinformers.Start(stopCh)
+		kcInformers.Start(stopCh)
+		stdInformers.Start(stopCh)
 	}
 
 	err = c.syncHandler(kcbName)
@@ -174,7 +174,7 @@ func (f *fixture) actionObjectsMatch(expectedAction, action core.Action) bool {
 }
 
 func filterStdInformerActions(actions []core.Action) []core.Action {
-	ret := []core.Action{}
+	ret := make([]core.Action, 0)
 	for _, action := range actions {
 		if len(action.GetNamespace()) == 0 &&
 			(action.Matches("list", "configmaps") ||
@@ -192,11 +192,12 @@ func filterStdInformerActions(actions []core.Action) []core.Action {
 }
 
 func filterKcInformerActions(actions []core.Action) []core.Action {
-	ret := []core.Action{}
+	ret := make([]core.Action, 0)
 	for _, action := range actions {
 		if len(action.GetNamespace()) == 0 &&
 			(action.Matches("watch", "kconfigs") ||
-				action.Matches("watch", "kconfigbindings")) {
+				action.Matches("list", "deploymentbindings") ||
+				action.Matches("watch", "deploymentbindings")) {
 			continue
 		}
 		ret = append(ret, action)
@@ -217,17 +218,17 @@ func (f *fixture) expectUpdateDeploymentAction(d *appsv1.Deployment) {
 func TestValueBindingUpdatesDeployment(t *testing.T) {
 	f := newFixture(t)
 
-	kcb := testutil.ValueKconfigBinding()
+	db := testutil.ValueDeploymentBinding()
 	d := testutil.Deployment()
 	dUpdate := testutil.ValueDeployment()
 
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.kbindingLister = append(f.kbindingLister, &db)
 	f.deploymentLister = append(f.deploymentLister, &d)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
 	f.stdobjects = append(f.stdobjects, &d)
 
 	f.expectUpdateDeploymentAction(&dUpdate)
 
-	key, _ := cache.MetaNamespaceKeyFunc(&kcb.ObjectMeta)
+	key, _ := cache.MetaNamespaceKeyFunc(&db.ObjectMeta)
 	f.run(key)
 }

@@ -6,10 +6,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// KconfigBinding returns new KconfigBinding
-func KconfigBinding() v1alpha1.KconfigBinding {
-	return v1alpha1.KconfigBinding{
-		TypeMeta: metav1.TypeMeta{APIVersion: v1alpha1.SchemeGroupVersion.String()},
+// DeploymentBinding returns new DeploymentBinding
+func DeploymentBinding() v1alpha1.DeploymentBinding {
+	return v1alpha1.DeploymentBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+			Kind: "DeploymentBinding",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: DefaultNamespace,
 			Name:      DefaultName,
@@ -23,19 +26,19 @@ func KconfigBinding() v1alpha1.KconfigBinding {
 	}
 }
 
-// EmptyKconfigEnvsKconfigBinding returns kcb with empty kconfigEnvs
-func EmptyKconfigEnvsKconfigBinding() v1alpha1.KconfigBinding {
+// EmptyKconfigEnvsDeploymentBinding returns kcb with empty kconfigEnvs
+func EmptyKconfigEnvsDeploymentBinding() v1alpha1.DeploymentBinding {
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level: DefaultLevel,
 		Envs:  []corev1.EnvVar{},
 	}
-	kcb := KconfigBinding()
+	kcb := DeploymentBinding()
 	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
 	return kcb
 }
 
-// ValueKconfigBinding returns KconfigBinding with Value envVar
-func ValueKconfigBinding() v1alpha1.KconfigBinding {
+// ValueDeploymentBinding returns DeploymentBinding with Value envVar
+func ValueDeploymentBinding() v1alpha1.DeploymentBinding {
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level: DefaultLevel,
 		Envs: []corev1.EnvVar{
@@ -45,13 +48,13 @@ func ValueKconfigBinding() v1alpha1.KconfigBinding {
 			},
 		},
 	}
-	kcb := KconfigBinding()
+	kcb := DeploymentBinding()
 	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
 	return kcb
 }
 
-// NewValueKconfigBinding returns KconfigBinding with Value envVar
-func NewValueKconfigBinding() v1alpha1.KconfigBinding {
+// NewValueDeploymentBinding returns DeploymentBinding with Value envVar
+func NewValueDeploymentBinding() v1alpha1.DeploymentBinding {
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level: DefaultLevel,
 		Envs: []corev1.EnvVar{
@@ -61,13 +64,13 @@ func NewValueKconfigBinding() v1alpha1.KconfigBinding {
 			},
 		},
 	}
-	kcb := KconfigBinding()
+	kcb := DeploymentBinding()
 	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
 	return kcb
 }
 
-// ConfigMapKconfigBinding returns KconfigBinding with ConfigMap envVar
-func ConfigMapKconfigBinding(envRefsVersion int64, configMapName string) v1alpha1.KconfigBinding {
+// ConfigMapDeploymentBinding returns DeploymentBinding with ConfigMap envVar
+func ConfigMapDeploymentBinding(envRefsVersion int64, configMapName string) v1alpha1.DeploymentBinding {
 	optional := true
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level:          DefaultLevel,
@@ -87,13 +90,13 @@ func ConfigMapKconfigBinding(envRefsVersion int64, configMapName string) v1alpha
 			},
 		},
 	}
-	kcb := KconfigBinding()
+	kcb := DeploymentBinding()
 	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
 	return kcb
 }
 
-// SecretKconfigBinding returns KconfigBinding with Secret envVar
-func SecretKconfigBinding(envRefsVersion int64, secretName string) v1alpha1.KconfigBinding {
+// SecretDeploymentBinding returns DeploymentBinding with Secret envVar
+func SecretDeploymentBinding(envRefsVersion int64, secretName string) v1alpha1.DeploymentBinding {
 	optional := true
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level:          DefaultLevel,
@@ -113,13 +116,13 @@ func SecretKconfigBinding(envRefsVersion int64, secretName string) v1alpha1.Kcon
 			},
 		},
 	}
-	kcb := KconfigBinding()
+	kcb := DeploymentBinding()
 	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
 	return kcb
 }
 
-// FieldRefKconfigBinding FieldRefKconfigBinding
-func FieldRefKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
+// FieldRefDeploymentBinding FieldRefDeploymentBinding
+func FieldRefDeploymentBinding(envRefsVersion int64) v1alpha1.DeploymentBinding {
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level:          DefaultLevel,
 		EnvRefsVersion: envRefsVersion,
@@ -134,13 +137,13 @@ func FieldRefKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
 			},
 		},
 	}
-	kcb := KconfigBinding()
+	kcb := DeploymentBinding()
 	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
 	return kcb
 }
 
-// ResourceFieldRefKconfigBinding ResourceFieldRefKconfigBinding
-func ResourceFieldRefKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBinding {
+// ResourceFieldRefDeploymentBinding ResourceFieldRefDeploymentBinding
+func ResourceFieldRefDeploymentBinding(envRefsVersion int64) v1alpha1.DeploymentBinding {
 	kconfigEnvs := v1alpha1.KconfigEnvs{
 		Level:          DefaultLevel,
 		EnvRefsVersion: envRefsVersion,
@@ -155,7 +158,7 @@ func ResourceFieldRefKconfigBinding(envRefsVersion int64) v1alpha1.KconfigBindin
 			},
 		},
 	}
-	kcb := KconfigBinding()
+	kcb := DeploymentBinding()
 	kcb.Spec.KconfigEnvsMap[DefaultKconfigEnvsKey] = kconfigEnvs
 	return kcb
 }

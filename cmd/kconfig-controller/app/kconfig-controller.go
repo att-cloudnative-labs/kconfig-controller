@@ -1,6 +1,7 @@
 package app
 
 import (
+	"k8s.io/client-go/rest"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -44,6 +45,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	masterURL, _ := cmd.Flags().GetString("master")
 	kubeconfig, _ := cmd.Flags().GetString("kubeconfig")
+	knativeServicesEnabled, _ := cmd.Flags().GetBool("knative")
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
@@ -63,14 +65,11 @@ func run(cmd *cobra.Command, args []string) {
 		klog.Fatalf("Error building kconfig clientset: %s", err.Error())
 	}
 
-	knativeClient, err := knclientset.NewForConfig(cfg)
-	if err != nil {
-		klog.Fatalf("Error building knative clientset: %s", err.Error())
-	}
+
 
 	stdInformerFactory := kubeinformers.NewSharedInformerFactory(stdClient, time.Second*30)
 	kconfigInformerFactory := informers.NewSharedInformerFactory(kconfigClient, time.Second*30)
-	knativeInformerFactory := kninformers.NewSharedInformerFactory(knativeClient, time.Second*30)
+
 
 	deploymentBindingController := deploymentbinding.NewController(
 		stdClient,
@@ -90,15 +89,7 @@ func run(cmd *cobra.Command, args []string) {
 		kconfigInformerFactory.Kconfigcontroller().V1alpha1().StatefulSetBindings(),
 	)
 
-	knativeServiceBindingController := knativeservicebinding.NewController(
-		stdClient,
-		kconfigClient,
-		knativeClient,
-		stdInformerFactory.Core().V1().ConfigMaps(),
-		stdInformerFactory.Core().V1().Secrets(),
-		knativeInformerFactory.Serving().V1alpha1().Services(),
-		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KnativeServiceBindings(),
-	)
+
 
 	deploymentController := deployment.NewController(
 		stdClient,
@@ -114,13 +105,7 @@ func run(cmd *cobra.Command, args []string) {
 		kconfigInformerFactory.Kconfigcontroller().V1alpha1().StatefulSetBindings(),
 	)
 
-	knativeServiceController := knativeservice.NewController(
-		stdClient,
-		knativeClient,
-		kconfigClient,
-		knativeInformerFactory.Serving().V1alpha1().Services(),
-		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KnativeServiceBindings(),
-	)
+
 
 	kconfigController := kconfig.NewController(
 		stdClient,
@@ -135,15 +120,18 @@ func run(cmd *cobra.Command, args []string) {
 
 	go stdInformerFactory.Start(stopCh)
 	go kconfigInformerFactory.Start(stopCh)
-	go knativeInformerFactory.Start(stopCh)
+
+	if knativeServicesEnabled {
+		startKnativeControllers(cfg, stdClient, kconfigClient, stdInformerFactory, kconfigInformerFactory, stopCh)
+	}
 
 	go deploymentBindingController.Run(2, stopCh)
 	go statefulSetBindingController.Run(2, stopCh)
-	go knativeServiceBindingController.Run(2, stopCh)
+
 
 	go deploymentController.Run(2, stopCh)
 	go statefulSetController.Run(2, stopCh)
-	go knativeServiceController.Run(2, stopCh)
+
 
 	go kconfigController.Run(2, stopCh)
 
@@ -154,4 +142,35 @@ func run(cmd *cobra.Command, args []string) {
 
 	<-stopCh
 	klog.Infof("Shutting down main process")
+}
+
+func startKnativeControllers(cfg *rest.Config, stdClient kubernetes.Interface, kconfigClient clientset.Interface, stdInformerFactory kubeinformers.SharedInformerFactory, kconfigInformerFactory informers.SharedInformerFactory, stopCh <-chan struct{}) {
+	knativeClient, err := knclientset.NewForConfig(cfg)
+	if err != nil {
+		klog.Fatalf("Error building knative clientset: %s", err.Error())
+	}
+
+	knativeInformerFactory := kninformers.NewSharedInformerFactory(knativeClient, time.Second*30)
+
+	knativeServiceBindingController := knativeservicebinding.NewController(
+		stdClient,
+		kconfigClient,
+		knativeClient,
+		stdInformerFactory.Core().V1().ConfigMaps(),
+		stdInformerFactory.Core().V1().Secrets(),
+		knativeInformerFactory.Serving().V1alpha1().Services(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KnativeServiceBindings(),
+	)
+	go knativeServiceBindingController.Run(2, stopCh)
+
+	knativeServiceController := knativeservice.NewController(
+		stdClient,
+		knativeClient,
+		kconfigClient,
+		knativeInformerFactory.Serving().V1alpha1().Services(),
+		kconfigInformerFactory.Kconfigcontroller().V1alpha1().KnativeServiceBindings(),
+	)
+	go knativeServiceController.Run(2, stopCh)
+
+	go knativeInformerFactory.Start(stopCh)
 }

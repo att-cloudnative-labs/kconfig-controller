@@ -57,8 +57,6 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kconfigcontroller().V1alpha1().DeploymentBindings().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("kconfigs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kconfigcontroller().V1alpha1().Kconfigs().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("kconfigbindings"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kconfigcontroller().V1alpha1().KconfigBindings().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("knativeservicebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kconfigcontroller().V1alpha1().KnativeServiceBindings().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("statefulsetbindings"):

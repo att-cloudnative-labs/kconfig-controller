@@ -45,25 +45,6 @@ type KconfigList struct {
 	Items           []Kconfig `json:"items"`
 }
 
-// TODO: this may not be needed anymore since deployments/statefulstes/knativeservices will have their own
-// KconfigBinding Holds configuration for deployment from combined Kconfigs that select its labels
-// +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type KconfigBinding struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec KconfigBindingSpec `json:"spec" protobuf:"bytes,1,opt,name=spec"`
-}
-
-// KconfigBindingList List of KconfigBindings
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type KconfigBindingList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []KconfigBinding `json:"items"`
-}
-
 // DeploymentBinding Holds configuration for deployment from combined Kconfigs that select its labels
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

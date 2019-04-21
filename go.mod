@@ -4,7 +4,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96 // indirect
 	github.com/elazarl/goproxy v0.0.0-20170405201442-c4fc26588b6e // indirect
-	github.com/evanphx/json-patch v0.0.0-20190203023257-5858425f7550 // indirect
+	github.com/evanphx/json-patch v0.0.0-20190203023257-5858425f7550
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903 // indirect
 	github.com/golang/protobuf v1.3.1 // indirect

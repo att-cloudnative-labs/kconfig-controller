@@ -28,8 +28,6 @@ type Interface interface {
 	DeploymentBindings() DeploymentBindingInformer
 	// Kconfigs returns a KconfigInformer.
 	Kconfigs() KconfigInformer
-	// KconfigBindings returns a KconfigBindingInformer.
-	KconfigBindings() KconfigBindingInformer
 	// KnativeServiceBindings returns a KnativeServiceBindingInformer.
 	KnativeServiceBindings() KnativeServiceBindingInformer
 	// StatefulSetBindings returns a StatefulSetBindingInformer.
@@ -55,11 +53,6 @@ func (v *version) DeploymentBindings() DeploymentBindingInformer {
 // Kconfigs returns a KconfigInformer.
 func (v *version) Kconfigs() KconfigInformer {
 	return &kconfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// KconfigBindings returns a KconfigBindingInformer.
-func (v *version) KconfigBindings() KconfigBindingInformer {
-	return &kconfigBindingInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // KnativeServiceBindings returns a KnativeServiceBindingInformer.

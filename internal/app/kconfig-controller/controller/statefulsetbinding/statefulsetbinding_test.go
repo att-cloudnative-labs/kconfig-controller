@@ -1,22 +1,22 @@
-package deployment
+package statefulsetbinding
 
 import (
-	"reflect"
-	"testing"
+"reflect"
+"testing"
 
-	"github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
-	kcfake "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/fake"
-	kcinformers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions"
-	testutil "github.com/gbraxton/kconfig/test/util"
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	stdinformers "k8s.io/client-go/informers"
-	stdfake "k8s.io/client-go/kubernetes/fake"
-	core "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
+"github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
+kcfake "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/fake"
+kcinformers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions"
+testutil "github.com/gbraxton/kconfig/test/util"
+appsv1 "k8s.io/api/apps/v1"
+"k8s.io/api/core/v1"
+"k8s.io/apimachinery/pkg/runtime"
+"k8s.io/apimachinery/pkg/runtime/schema"
+stdinformers "k8s.io/client-go/informers"
+stdfake "k8s.io/client-go/kubernetes/fake"
+core "k8s.io/client-go/testing"
+"k8s.io/client-go/tools/cache"
+"k8s.io/client-go/tools/record"
 )
 
 var (
@@ -30,8 +30,10 @@ type fixture struct {
 	kcclient  *kcfake.Clientset
 
 	// Objects to put in the store
-	deploymentLister        []*appsv1.Deployment
-	deploymentBindingLister []*v1alpha1.DeploymentBinding
+	configmapLister          []*v1.ConfigMap
+	secretLister             []*v1.Secret
+	statefulSetLister        []*appsv1.StatefulSet
+	statefulsetBindingLister []*v1alpha1.StatefulSetBinding
 
 	// Actions expected to happen on the client. Objects from here are also
 	// preloaded into NewSimpleFake.
@@ -56,31 +58,39 @@ func (f *fixture) newController() (*Controller, kcinformers.SharedInformerFactor
 	stdInformers := stdinformers.NewSharedInformerFactory(f.stdclient, 0)
 	kcInformers := kcinformers.NewSharedInformerFactory(f.kcclient, 0)
 
-	c := NewController(f.stdclient, f.kcclient, stdInformers.Apps().V1().Deployments(), kcInformers.Kconfigcontroller().V1alpha1().DeploymentBindings())
+	c := NewController(f.stdclient, f.kcclient, stdInformers.Core().V1().ConfigMaps(), stdInformers.Core().V1().Secrets(), stdInformers.Apps().V1().StatefulSets(), kcInformers.Kconfigcontroller().V1alpha1().StatefulSetBindings())
 	c.recorder = &record.FakeRecorder{}
-	c.deploymentsSynced = alwaysReady
-	c.deploymentBindingsSynced = alwaysReady
-	for _, d := range f.deploymentLister {
-		_ = stdInformers.Apps().V1().Deployments().Informer().GetIndexer().Add(d)
+	c.configmapsSynced = alwaysReady
+	c.secretsSynced = alwaysReady
+	c.statefulsetsSynced = alwaysReady
+	c.statefulsetBindingsSynced = alwaysReady
+	for _, cm := range f.configmapLister {
+		_ = stdInformers.Core().V1().ConfigMaps().Informer().GetIndexer().Add(cm)
 	}
-	for _, kcb := range f.deploymentBindingLister {
-		_ = kcInformers.Kconfigcontroller().V1alpha1().DeploymentBindings().Informer().GetIndexer().Add(kcb)
+	for _, sec := range f.secretLister {
+		_ = stdInformers.Core().V1().Secrets().Informer().GetIndexer().Add(sec)
+	}
+	for _, dep := range f.statefulSetLister {
+		_ = stdInformers.Apps().V1().StatefulSets().Informer().GetIndexer().Add(dep)
+	}
+	for _, kcb := range f.statefulsetBindingLister {
+		_ = kcInformers.Kconfigcontroller().V1alpha1().StatefulSetBindings().Informer().GetIndexer().Add(kcb)
 	}
 	return c, kcInformers, stdInformers, nil
 }
 
-func (f *fixture) runExpectError(deploymentName string, startInformers bool) {
-	f.runSync(deploymentName, startInformers, true)
+func (f *fixture) runExpectError(kcbName string, startInformers bool) {
+	f.runSync(kcbName, startInformers, true)
 }
 
-func (f *fixture) run(deploymentName string) {
-	f.runSync(deploymentName, true, false)
+func (f *fixture) run(kcbName string) {
+	f.runSync(kcbName, true, false)
 }
 
-func (f *fixture) runSync(deploymentName string, startInformers bool, expectError bool) {
+func (f *fixture) runSync(kcbName string, startInformers bool, expectError bool) {
 	c, kcInformers, stdInformers, err := f.newController()
 	if err != nil {
-		f.t.Fatalf("error creating Kconfig controller: %v", err)
+		f.t.Fatalf("error creating DeploymentBinding controller: %v", err)
 	}
 	if startInformers {
 		stopCh := make(chan struct{})
@@ -89,29 +99,12 @@ func (f *fixture) runSync(deploymentName string, startInformers bool, expectErro
 		stdInformers.Start(stopCh)
 	}
 
-	err = c.syncHandler(deploymentName)
+	err = c.syncHandler(kcbName)
 	if !expectError && err != nil {
 		f.t.Errorf("error syncing kconfig: %v", err)
 	} else if expectError && err == nil {
 		f.t.Error("expected error syncing kconfig, got nil")
 	}
-
-	f.checkActions()
-}
-
-// runDelete calls deleteKconfig instead of syncHandler
-func (f *fixture) runDelete(obj interface{}) {
-	c, kcInformers, stdInformers, err := f.newController()
-	if err != nil {
-		f.t.Fatalf("error creating Deployment controller: %v", err)
-	}
-
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	kcInformers.Start(stopCh)
-	stdInformers.Start(stopCh)
-
-	c.deleteHandler(obj)
 
 	f.checkActions()
 }
@@ -184,8 +177,14 @@ func filterStdInformerActions(actions []core.Action) []core.Action {
 	ret := make([]core.Action, 0)
 	for _, action := range actions {
 		if len(action.GetNamespace()) == 0 &&
-			(action.Matches("watch", "deployments") ||
-				action.Matches("list", "deployments")) {
+			(action.Matches("list", "configmaps") ||
+				action.Matches("watch", "configmaps") ||
+				action.Matches("list", "secrets") ||
+				action.Matches("watch", "secrets") ||
+				action.Matches("list", "deployments") ||
+				action.Matches("watch", "deployments") ||
+				action.Matches("list", "statefulsets") ||
+				action.Matches("watch", "statefulsets")) {
 			continue
 		}
 		ret = append(ret, action)
@@ -198,8 +197,9 @@ func filterKcInformerActions(actions []core.Action) []core.Action {
 	ret := make([]core.Action, 0)
 	for _, action := range actions {
 		if len(action.GetNamespace()) == 0 &&
-			(action.Matches("watch", "deploymentbindings") ||
-				action.Matches("list", "deploymentbindings")) {
+			(action.Matches("watch", "kconfigs") ||
+				action.Matches("list", "statefulsetbindings") ||
+				action.Matches("watch", "statefulsetbindings")) {
 			continue
 		}
 		ret = append(ret, action)
@@ -207,66 +207,31 @@ func filterKcInformerActions(actions []core.Action) []core.Action {
 	return ret
 }
 
-func (f *fixture) expectCreateDeploymentBindingAction(k *v1alpha1.DeploymentBinding) {
+func (f *fixture) expectUpdateStatefulSetAction(d *appsv1.StatefulSet) {
 	resource := schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "deploymentbindings",
+		Group:    appsv1.SchemeGroupVersion.Group,
+		Version:  appsv1.SchemeGroupVersion.Version,
+		Resource: "statefulsets",
 	}
-	action := core.NewCreateAction(resource, k.Namespace, k)
-	f.kcactions = append(f.kcactions, action)
+	action := core.NewUpdateAction(resource, d.Namespace, d)
+	f.stdactions = append(f.kcactions, action)
 }
 
-func (f *fixture) expectUpdateDeploymentBindingAction(k *v1alpha1.DeploymentBinding) {
-	resource := schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "deploymentbindings",
-	}
-	action := core.NewUpdateAction(resource, k.Namespace, k)
-	f.kcactions = append(f.kcactions, action)
-}
-
-func (f *fixture) expectDeleteDeploymentBindingAction(k *v1alpha1.DeploymentBinding) {
-	resource := schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "deploymentbindings",
-	}
-	action := core.NewDeleteAction(resource, k.Namespace, k.Name)
-	f.kcactions = append(f.kcactions, action)
-}
-
-func TestNewDeploymentCreatesDeploymentBinding(t *testing.T) {
+func TestValueBindingUpdatesStatefulSet(t *testing.T) {
 	f := newFixture(t)
 
-	d := testutil.Deployment()
-	expectedKcbCreate := testutil.DeploymentBinding()
-	expectedKcbUpdate := testutil.DeploymentBinding()
+	ssb := testutil.ValueStatefulSetBinding()
+	ss := testutil.StatefulSet()
+	sUpdate := testutil.ValueStatefulSet()
 
-	f.deploymentLister = append(f.deploymentLister, &d)
-	f.stdobjects = append(f.stdobjects, &d)
+	f.statefulsetBindingLister = append(f.statefulsetBindingLister, &ssb)
+	f.statefulSetLister = append(f.statefulSetLister, &ss)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.stdobjects = append(f.stdobjects, &ss)
 
-	f.expectCreateDeploymentBindingAction(&expectedKcbCreate)
-	f.expectUpdateDeploymentBindingAction(&expectedKcbUpdate)
+	f.expectUpdateStatefulSetAction(&sUpdate)
 
-	key, _ := cache.MetaNamespaceKeyFunc(&d.ObjectMeta)
+	key, _ := cache.MetaNamespaceKeyFunc(&ssb.ObjectMeta)
 	f.run(key)
 }
 
-func TestDeleteDeploymentDeletesDeploymentBinding(t *testing.T) {
-	f := newFixture(t)
-
-	d := testutil.Deployment()
-	now := metav1.Now()
-	d.ObjectMeta.DeletionTimestamp = &now
-	kcb := testutil.DeploymentBinding()
-
-	f.deploymentBindingLister = append(f.deploymentBindingLister, &kcb)
-	f.kcobjects = append(f.kcobjects, &kcb)
-
-	f.expectDeleteDeploymentBindingAction(&kcb)
-
-	key, _ := cache.MetaNamespaceKeyFunc(&d.ObjectMeta)
-	f.runDelete(cache.DeletedFinalStateUnknown{Key: key, Obj: &d})
-}

@@ -378,23 +378,83 @@ func (c *Controller) removeKconfigEnvsFromDeploymentBindings(kconfig *v1alpha1.K
 	}
 }
 
+func (c *Controller) removeKconfigEnvsFromStatefulSetBindings(kconfig *v1alpha1.Kconfig) {
+	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
+	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from StatefulSetBinding: %+v", err.Error()))
+		return
+	}
+	statefulSetBindings, err := c.statefulSetBindingLister.StatefulSetBindings(kconfig.Namespace).List(selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from StatefulSetBinding: %+v", err.Error()))
+		return
+	}
+	for _, statefulSetBinding := range statefulSetBindings {
+		statefulSetBindingCopy := statefulSetBinding.DeepCopy()
+		if statefulSetBindingCopy.Spec.KconfigEnvsMap == nil {
+			continue
+		}
+		delete(statefulSetBindingCopy.Spec.KconfigEnvsMap, envKey)
+		if !reflect.DeepEqual(statefulSetBindingCopy.Spec, statefulSetBinding.Spec) {
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().StatefulSetBindings(kconfig.Namespace).Update(statefulSetBindingCopy)
+			if err != nil {
+				runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from StatefulSetBinding: %+v", err.Error()))
+				continue
+			}
+		}
+	}
+}
+
+func (c *Controller) removeKconfigEnvsFromKnativeServiceBindings(kconfig *v1alpha1.Kconfig) {
+	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
+	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from KnativeServiceBinding: %+v", err.Error()))
+		return
+	}
+	knativeServiceBindings, err := c.knativeServiceBindingLister.KnativeServiceBindings(kconfig.Namespace).List(selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from KnativeServiceBinding: %+v", err.Error()))
+		return
+	}
+	for _, knativeServiceBinding := range knativeServiceBindings {
+		knativeServiceBindingCopy := knativeServiceBinding.DeepCopy()
+		if knativeServiceBindingCopy.Spec.KconfigEnvsMap == nil {
+			continue
+		}
+		delete(knativeServiceBindingCopy.Spec.KconfigEnvsMap, envKey)
+		if !reflect.DeepEqual(knativeServiceBindingCopy.Spec, knativeServiceBinding.Spec) {
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().KnativeServiceBindings(kconfig.Namespace).Update(knativeServiceBindingCopy)
+			if err != nil {
+				runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from KnativeServiceBinding: %+v", err.Error()))
+				continue
+			}
+		}
+	}
+}
+
 func (c *Controller) deleteHandler(obj interface{}) {
 	kc, ok := obj.(*v1alpha1.Kconfig)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			runtime.HandleError(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+			runtime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
 			return
 		}
 		kc, ok = tombstone.Obj.(*v1alpha1.Kconfig)
 		if !ok {
-			runtime.HandleError(fmt.Errorf("Tombstone contained object that is not a Kconfig %#v", obj))
+			runtime.HandleError(fmt.Errorf("tombstone contained object that is not a Kconfig %#v", obj))
 			return
 		}
 	}
 	klog.Infof("Deleting kconfig %s", kc.Name)
 	c.removeKconfigEnvsFromDeploymentBindings(kc)
+	c.removeKconfigEnvsFromStatefulSetBindings(kc)
+	c.removeKconfigEnvsFromKnativeServiceBindings(kc)
 }
+
+
 
 func processEnvConfigValues(kconfigName string, origEnvConfigs []v1alpha1.EnvConfig, externalActionCache *ExternalActionCache, updatedRefs *bool) []v1alpha1.EnvConfig {
 	updatedEnvConfigs := make([]v1alpha1.EnvConfig, 0)

@@ -9,7 +9,7 @@ import (
 
 	"k8s.io/klog"
 
-	"github.com/gbraxton/kconfig/cmd/kconfig-controller-manager/app"
+	"github.com/gbraxton/kconfig/cmd/kconfig-controller/app"
 )
 
 func main() {
@@ -20,6 +20,7 @@ func main() {
 
 	command := app.NewControllerManagerCommand()
 	command.Flags().AddGoFlagSet(goflag.CommandLine)
+	command.Flags().Bool("knative", false, "enable configuration of knative services")
 
 	if err := command.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

@@ -1,5 +1,6 @@
 package util
 
+
 import (
 	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
 	appsv1 "k8s.io/api/apps/v1"
@@ -7,18 +8,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// DeploymentTypeMeta returns Deployment TypeMeta
-func DeploymentTypeMeta() metav1.TypeMeta {
+// TypeMeta returns StatefulSet TypeMeta
+func StatefulSetTypeMeta() metav1.TypeMeta {
 	return metav1.TypeMeta{
 		APIVersion: appsv1.SchemeGroupVersion.String(),
-		Kind:       "Deployment",
+		Kind:       "StatefulSet",
 	}
 }
 
-// Deployment returns base deployment
-func Deployment() appsv1.Deployment {
-	return appsv1.Deployment{
-		TypeMeta: DeploymentTypeMeta(),
+// StatefulSet returns base StatefulSet
+func StatefulSet() appsv1.StatefulSet {
+	return appsv1.StatefulSet{
+		TypeMeta: StatefulSetTypeMeta(),
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: DefaultNamespace,
 			Name:      DefaultName,
@@ -29,7 +30,7 @@ func Deployment() appsv1.Deployment {
 				controller.KconfigEnabledDeploymentAnnotation: "true",
 			},
 		},
-		Spec: appsv1.DeploymentSpec{
+		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					DefaultSelectorKey: DefaultSelectorValue,
@@ -48,7 +49,7 @@ func Deployment() appsv1.Deployment {
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
-						{
+						corev1.Container{
 							Env: []corev1.EnvVar{},
 						},
 					},
@@ -58,11 +59,11 @@ func Deployment() appsv1.Deployment {
 	}
 }
 
-// ValueDeployment returns deployment with a name/value envVar
-func ValueDeployment() appsv1.Deployment {
-	d := Deployment()
+// ValueStatefulSet returns StatefulSet with a name/value envVar
+func ValueStatefulSet() appsv1.StatefulSet {
+	d := StatefulSet()
 	envs := []corev1.EnvVar{
-		{
+		corev1.EnvVar{
 			Name:  DefaultKey,
 			Value: DefaultValue,
 		},

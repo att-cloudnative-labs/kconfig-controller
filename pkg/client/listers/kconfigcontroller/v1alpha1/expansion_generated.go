@@ -34,14 +34,6 @@ type KconfigListerExpansion interface{}
 // KconfigNamespaceLister.
 type KconfigNamespaceListerExpansion interface{}
 
-// KconfigBindingListerExpansion allows custom methods to be added to
-// KconfigBindingLister.
-type KconfigBindingListerExpansion interface{}
-
-// KconfigBindingNamespaceListerExpansion allows custom methods to be added to
-// KconfigBindingNamespaceLister.
-type KconfigBindingNamespaceListerExpansion interface{}
-
 // KnativeServiceBindingListerExpansion allows custom methods to be added to
 // KnativeServiceBindingLister.
 type KnativeServiceBindingListerExpansion interface{}

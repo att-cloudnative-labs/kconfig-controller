@@ -31,10 +31,12 @@ type fixture struct {
 	kcclient  *kcfake.Clientset
 
 	// Objects to put in the store
-	configmapLister []*v1.ConfigMap
-	secretLister    []*v1.Secret
-	kconfigLister   []*v1alpha1.Kconfig
-	kbindingLister  []*v1alpha1.KconfigBinding
+	configmapLister         []*v1.ConfigMap
+	secretLister            []*v1.Secret
+	kconfigLister           []*v1alpha1.Kconfig
+	deploymentBindingLister []*v1alpha1.DeploymentBinding
+	statefulSetBindingLister []*v1alpha1.StatefulSetBinding
+	knativeServiceBindingLister []*v1alpha1.KnativeServiceBinding
 
 	// Actions expected to happen on the client. Objects from here are also
 	// preloaded into NewSimpleFake.
@@ -56,28 +58,44 @@ func (f *fixture) newController() (*Controller, kcinformers.SharedInformerFactor
 	f.stdclient = stdfake.NewSimpleClientset(f.stdobjects...)
 	f.kcclient = kcfake.NewSimpleClientset(f.kcobjects...)
 
-	stdinformers := stdinformers.NewSharedInformerFactory(f.stdclient, 0)
-	kcinformers := kcinformers.NewSharedInformerFactory(f.kcclient, 0)
+	stdInformers := stdinformers.NewSharedInformerFactory(f.stdclient, 0)
+	kcInformers := kcinformers.NewSharedInformerFactory(f.kcclient, 0)
 
-	c := NewController(f.stdclient, f.kcclient, stdinformers.Core().V1().ConfigMaps(), stdinformers.Core().V1().Secrets(), kcinformers.Kconfigcontroller().V1alpha1().Kconfigs(), kcinformers.Kconfigcontroller().V1alpha1().KconfigBindings())
+	c := NewController(
+		f.stdclient,
+		f.kcclient,
+		stdInformers.Core().V1().ConfigMaps(),
+		stdInformers.Core().V1().Secrets(),
+		kcInformers.Kconfigcontroller().V1alpha1().Kconfigs(),
+		kcInformers.Kconfigcontroller().V1alpha1().DeploymentBindings(),
+		kcInformers.Kconfigcontroller().V1alpha1().StatefulSetBindings(),
+		kcInformers.Kconfigcontroller().V1alpha1().KnativeServiceBindings())
 	c.recorder = &record.FakeRecorder{}
 	c.configmapsSynced = alwaysReady
 	c.secretsSynced = alwaysReady
 	c.kconfigsSynced = alwaysReady
-	c.kconfigBindingsSynced = alwaysReady
+	c.deploymentBindingsSynced = alwaysReady
+	c.statefulSetBindingsSynced = alwaysReady
+	c.knativeServiceBindingsSynced = alwaysReady
 	for _, cm := range f.configmapLister {
-		stdinformers.Core().V1().ConfigMaps().Informer().GetIndexer().Add(cm)
+		_ = stdInformers.Core().V1().ConfigMaps().Informer().GetIndexer().Add(cm)
 	}
 	for _, sec := range f.secretLister {
-		stdinformers.Core().V1().Secrets().Informer().GetIndexer().Add(sec)
+		_ = stdInformers.Core().V1().Secrets().Informer().GetIndexer().Add(sec)
 	}
 	for _, kc := range f.kconfigLister {
-		kcinformers.Kconfigcontroller().V1alpha1().Kconfigs().Informer().GetIndexer().Add(kc)
+		_ = kcInformers.Kconfigcontroller().V1alpha1().Kconfigs().Informer().GetIndexer().Add(kc)
 	}
-	for _, kcb := range f.kbindingLister {
-		kcinformers.Kconfigcontroller().V1alpha1().KconfigBindings().Informer().GetIndexer().Add(kcb)
+	for _, db := range f.deploymentBindingLister {
+		_ = kcInformers.Kconfigcontroller().V1alpha1().DeploymentBindings().Informer().GetIndexer().Add(db)
 	}
-	return c, kcinformers, stdinformers, nil
+	for _, db := range f.statefulSetBindingLister {
+		_ = kcInformers.Kconfigcontroller().V1alpha1().StatefulSetBindings().Informer().GetIndexer().Add(db)
+	}
+	for _, db := range f.knativeServiceBindingLister {
+		_ = kcInformers.Kconfigcontroller().V1alpha1().KnativeServiceBindings().Informer().GetIndexer().Add(db)
+	}
+	return c, kcInformers, stdInformers, nil
 }
 
 func (f *fixture) runExpectError(kconfigName string, startInformers bool) {
@@ -89,15 +107,15 @@ func (f *fixture) run(kconfigName string) {
 }
 
 func (f *fixture) runSync(kconfigName string, startInformers bool, expectError bool) {
-	c, kcinformers, stdinformers, err := f.newController()
+	c, kcInformers, stdInformers, err := f.newController()
 	if err != nil {
 		f.t.Fatalf("error creating Kconfig controller: %v", err)
 	}
 	if startInformers {
 		stopCh := make(chan struct{})
 		defer close(stopCh)
-		kcinformers.Start(stopCh)
-		stdinformers.Start(stopCh)
+		kcInformers.Start(stopCh)
+		stdInformers.Start(stopCh)
 	}
 
 	err = c.syncHandler(kconfigName)
@@ -112,18 +130,15 @@ func (f *fixture) runSync(kconfigName string, startInformers bool, expectError b
 
 // runDelete calls deleteKconfig instead of syncHandler
 func (f *fixture) runDelete(obj interface{}) {
-	startInformers := true
-
-	c, kcinformers, stdinformers, err := f.newController()
+	c, kcInformers, stdInformers, err := f.newController()
 	if err != nil {
-		f.t.Fatalf("error creating Deployment controller: %v", err)
+		f.t.Fatalf("error creating Kconfig controller: %v", err)
 	}
-	if startInformers {
-		stopCh := make(chan struct{})
-		defer close(stopCh)
-		kcinformers.Start(stopCh)
-		stdinformers.Start(stopCh)
-	}
+
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	kcInformers.Start(stopCh)
+	stdInformers.Start(stopCh)
 
 	c.deleteHandler(obj)
 
@@ -188,7 +203,7 @@ func (f *fixture) actionObjectsMatch(expectedAction, action core.Action) bool {
 }
 
 func filterStdInformerActions(actions []core.Action) []core.Action {
-	ret := []core.Action{}
+	ret := make([]core.Action, 0)
 	for _, action := range actions {
 		if len(action.GetNamespace()) == 0 &&
 			(action.Matches("list", "configmaps") ||
@@ -204,13 +219,17 @@ func filterStdInformerActions(actions []core.Action) []core.Action {
 }
 
 func filterKcInformerActions(actions []core.Action) []core.Action {
-	ret := []core.Action{}
+	ret := make([]core.Action, 0)
 	for _, action := range actions {
 		if len(action.GetNamespace()) == 0 &&
 			(action.Matches("list", "kconfigs") ||
-				action.Matches("list", "kconfigbindings") ||
+				action.Matches("list", "deploymentbindings") ||
+				action.Matches("list", "statefulsetbindings") ||
+				action.Matches("list", "knativeservicebindings") ||
 				action.Matches("watch", "kconfigs") ||
-				action.Matches("watch", "kconfigbindings")) {
+				action.Matches("watch", "deploymentbindings") ||
+				action.Matches("watch", "statefulsetbindings") ||
+				action.Matches("watch", "knativeservicebindings")) {
 			continue
 		}
 		ret = append(ret, action)
@@ -228,11 +247,31 @@ func (f *fixture) expectUpdateKconfigAction(k *v1alpha1.Kconfig) {
 	f.kcactions = append(f.kcactions, action)
 }
 
-func (f *fixture) expectUpdateKconfigBindingAction(k *v1alpha1.KconfigBinding) {
+func (f *fixture) expectUpdateDeploymentBindingAction(k *v1alpha1.DeploymentBinding) {
 	resource := schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "kconfigbindings",
+		Resource: "deploymentbindings",
+	}
+	action := core.NewUpdateAction(resource, k.Namespace, k)
+	f.kcactions = append(f.kcactions, action)
+}
+
+func (f *fixture) expectUpdateStatefulSetBindingAction(k *v1alpha1.StatefulSetBinding) {
+	resource := schema.GroupVersionResource{
+		Group:    v1alpha1.SchemeGroupVersion.Group,
+		Version:  v1alpha1.SchemeGroupVersion.Version,
+		Resource: "statefulsetbindings",
+	}
+	action := core.NewUpdateAction(resource, k.Namespace, k)
+	f.kcactions = append(f.kcactions, action)
+}
+
+func (f *fixture) expectUpdateKnativeServiceBindingAction(k *v1alpha1.KnativeServiceBinding) {
+	resource := schema.GroupVersionResource{
+		Group:    v1alpha1.SchemeGroupVersion.Group,
+		Version:  v1alpha1.SchemeGroupVersion.Version,
+		Resource: "knativeservicebindings",
 	}
 	action := core.NewUpdateAction(resource, k.Namespace, k)
 	f.kcactions = append(f.kcactions, action)
@@ -282,15 +321,26 @@ func TestValueKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.ValueKconfig()
-	kcb := testutil.KconfigBinding()
-	expectedkcbupdate := testutil.ValueKconfigBinding()
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedDbUpdate := testutil.ValueDeploymentBinding()
+	expectedSsbUpdate := testutil.ValueStatefulSetBinding()
+	expectedKsbUpdate := testutil.ValueKnativeServiceBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
-	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.kcobjects = append(f.kcobjects, &kc)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
+
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -301,17 +351,27 @@ func TestValueKconfigWithEmptyType(t *testing.T) {
 
 	kc := testutil.ValueKconfig()
 	kc.Spec.EnvConfigs[0].Type = ""
-	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.ValueKconfig()
-	expectedkcbupdate := testutil.ValueKconfigBinding()
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcUpdate := testutil.ValueKconfig()
+	expectedDbUpdate := testutil.ValueDeploymentBinding()
+	expectedSsbUpdate := testutil.ValueStatefulSetBinding()
+	expectedKsbUpdate := testutil.ValueKnativeServiceBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -321,15 +381,25 @@ func TestConfigmapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
-	kcb := testutil.KconfigBinding()
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(0, testutil.DefaultConfigMapName)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcbUpdate := testutil.ConfigMapDeploymentBinding(0, testutil.DefaultConfigMapName)
+	expectedSsbUpdate := testutil.ConfigMapStatefulSetBinding(0, testutil.DefaultConfigMapName)
+	expectedKsbUpdate := testutil.ConfigMapKnativeServiceBinding(0, testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedKcbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -339,15 +409,25 @@ func TestSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.SecretKconfig(testutil.DefaultSecretName)
-	kcb := testutil.KconfigBinding()
-	expectedkcbupdate := testutil.SecretKconfigBinding(0, testutil.DefaultSecretName)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcbUpdate := testutil.SecretDeploymentBinding(0, testutil.DefaultSecretName)
+	expectedSsbUpdate := testutil.SecretStatefulSetBinding(0, testutil.DefaultSecretName)
+	expectedKsbUpdate := testutil.SecretKnativeServiceBinding(0, testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedKcbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -357,15 +437,25 @@ func TestFieldRefKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.FieldRefKconfig()
-	kcb := testutil.KconfigBinding()
-	expectedkcbupdate := testutil.FieldRefKconfigBinding(0)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedDbUpdate := testutil.FieldRefDeploymentBinding(0)
+	expectedSsbUpdate := testutil.FieldRefStatefulSetBinding(0)
+	expectedKsbUpdate := testutil.FieldRefKnativeServiceBinding(0)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -375,15 +465,25 @@ func TestResourceFieldRefKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.ResourceFieldRefKconfig()
-	kcb := testutil.KconfigBinding()
-	expectedkcbupdate := testutil.ResourceFieldRefKconfigBinding(0)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedDbUpdate := testutil.ResourceFieldRefDeploymentBinding(0)
+	expectedSsbUpdate := testutil.ResourceFieldRefStatefulSetBinding(0)
+	expectedKsbUpdate := testutil.ResourceFieldRefKnativeServiceBinding(0)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -393,21 +493,30 @@ func TestAddConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddConfigMapKconfig()
-	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, testutil.DefaultConfigMapName)
-	expectedcmcreate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcUpdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.ConfigMapDeploymentBinding(1, testutil.DefaultConfigMapName)
+	expectedSsbUpdate := testutil.ConfigMapStatefulSetBinding(1, testutil.DefaultConfigMapName)
+	expectedKsbUpdate := testutil.ConfigMapKnativeServiceBinding(1, testutil.DefaultConfigMapName)
+	expectedCmCreate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectCreateConfigMapAction(&expectedcmcreate)
-	// f.expectUpdateConfigMapAction(&expectedcmupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectCreateConfigMapAction(&expectedCmCreate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -419,20 +528,30 @@ func TestAddConfigMapKconfigWithoutRefName(t *testing.T) {
 	configMapName := fmt.Sprintf("%s%s", ReferenceResourceNamePrefix, testutil.DefaultName)
 	kc := testutil.AddConfigMapKconfig()
 	kc.Spec.EnvConfigs[0].RefName = nil
-	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.ConfigMapKconfig(configMapName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, configMapName)
-	expectedcmcreate := testutil.ConfigMapWithData(configMapName)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcUpdate := testutil.ConfigMapKconfig(configMapName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.ConfigMapDeploymentBinding(1, configMapName)
+	expectedSsbUpdate := testutil.ConfigMapStatefulSetBinding(1, configMapName)
+	expectedKsbUpdate := testutil.ConfigMapKnativeServiceBinding(1, configMapName)
+	expectedCmCreate := testutil.ConfigMapWithData(configMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectCreateConfigMapAction(&expectedcmcreate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectCreateConfigMapAction(&expectedCmCreate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -442,17 +561,27 @@ func TestAddFieldRefKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddFieldRefKconfig()
-	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.FieldRefKconfig()
-	expectedkcbupdate := testutil.FieldRefKconfigBinding(0)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcUpdate := testutil.FieldRefKconfig()
+	expectedDbUpdate := testutil.FieldRefDeploymentBinding(0)
+	expectedSsbUpdate := testutil.FieldRefStatefulSetBinding(0)
+	expectedKsbUpdate := testutil.FieldRefKnativeServiceBinding(0)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -462,17 +591,27 @@ func TestAddResourceFieldRefKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddResourceFieldRefKconfig()
-	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.ResourceFieldRefKconfig()
-	expectedkcbupdate := testutil.ResourceFieldRefKconfigBinding(0)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcUpdate := testutil.ResourceFieldRefKconfig()
+	expectedDbUpdate := testutil.ResourceFieldRefDeploymentBinding(0)
+	expectedSsbUpdate := testutil.ResourceFieldRefStatefulSetBinding(0)
+	expectedKsbUpdate := testutil.ResourceFieldRefKnativeServiceBinding(0)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -482,23 +621,33 @@ func TestAddExistingConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddConfigMapKconfig()
-	kcb := testutil.KconfigBinding()
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
 	cm := testutil.ConfigMap(testutil.DefaultConfigMapName)
-	expectedkcupdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, testutil.DefaultConfigMapName)
-	expectedcmupdate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
+	expectedKcUpdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.ConfigMapDeploymentBinding(1, testutil.DefaultConfigMapName)
+	expectedSsbUpdate := testutil.ConfigMapStatefulSetBinding(1, testutil.DefaultConfigMapName)
+	expectedKsbUpdate := testutil.ConfigMapKnativeServiceBinding(1, testutil.DefaultConfigMapName)
+	expectedCmUpdate := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.configmapLister = append(f.configmapLister, &cm)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 	f.stdobjects = append(f.stdobjects, &cm)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectUpdateConfigMapAction(&expectedcmupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectUpdateConfigMapAction(&expectedCmUpdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -508,20 +657,30 @@ func TestAddSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddSecretKconfig()
-	kcb := testutil.KconfigBinding()
-	expectedkcupdate := testutil.SecretKconfig(testutil.DefaultSecretName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.SecretKconfigBinding(1, testutil.DefaultSecretName)
-	expectedsecretcreate := testutil.SecretWithData(testutil.DefaultSecretName)
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
+	expectedKcUpdate := testutil.SecretKconfig(testutil.DefaultSecretName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.SecretDeploymentBinding(1, testutil.DefaultSecretName)
+	expectedSsbUpdate := testutil.SecretStatefulSetBinding(1, testutil.DefaultSecretName)
+	expectedKsbUpdate := testutil.SecretKnativeServiceBinding(1, testutil.DefaultSecretName)
+	expectedSecretCreate := testutil.SecretWithData(testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectCreateSecretAction(&expectedsecretcreate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectCreateSecretAction(&expectedSecretCreate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -532,21 +691,31 @@ func TestAddSecretKconfigWithoutRefName(t *testing.T) {
 
 	kc := testutil.AddSecretKconfig()
 	kc.Spec.EnvConfigs[0].RefName = nil
-	kcb := testutil.KconfigBinding()
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
 	secretName := fmt.Sprintf("%s%s", ReferenceResourceNamePrefix, testutil.DefaultName)
-	expectedkcupdate := testutil.SecretKconfig(secretName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.SecretKconfigBinding(1, secretName)
-	expectedsecretcreate := testutil.SecretWithData(secretName)
+	expectedKcUpdate := testutil.SecretKconfig(secretName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.SecretDeploymentBinding(1, secretName)
+	expectedSsbUpdate := testutil.SecretStatefulSetBinding(1, secretName)
+	expectedKsbUpdate := testutil.SecretKnativeServiceBinding(1, secretName)
+	expectedSecretCreate := testutil.SecretWithData(secretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectCreateSecretAction(&expectedsecretcreate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectCreateSecretAction(&expectedSecretCreate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -556,23 +725,33 @@ func TestAddExistingSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.AddSecretKconfig()
-	kcb := testutil.KconfigBinding()
+	db := testutil.DeploymentBinding()
+	ssb := testutil.StatefulSetBinding()
+	ksb := testutil.KnativeServiceBinding()
 	secret := testutil.Secret(testutil.DefaultSecretName)
-	expectedkcupdate := testutil.SecretKconfig(testutil.DefaultSecretName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.SecretKconfigBinding(1, testutil.DefaultSecretName)
-	expectedsecretupdate := testutil.SecretWithData(testutil.DefaultSecretName)
+	expectedKcUpdate := testutil.SecretKconfig(testutil.DefaultSecretName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.SecretDeploymentBinding(1, testutil.DefaultSecretName)
+	expectedSsbUpdate := testutil.SecretStatefulSetBinding(1, testutil.DefaultSecretName)
+	expectedKsbUpdate := testutil.SecretKnativeServiceBinding(1, testutil.DefaultSecretName)
+	expectedSecretUpdate := testutil.SecretWithData(testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.secretLister = append(f.secretLister, &secret)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 	f.stdobjects = append(f.stdobjects, &secret)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectUpdateSecretAction(&expectedsecretupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectUpdateSecretAction(&expectedSecretUpdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -581,15 +760,25 @@ func TestValueUpdateKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.NewValueKconfig()
-	kcb := testutil.ValueKconfigBinding()
-	expectedkcbupdate := testutil.NewValueKconfigBinding()
+	db := testutil.ValueDeploymentBinding()
+	ssb := testutil.ValueStatefulSetBinding()
+	ksb := testutil.ValueKnativeServiceBinding()
+	expectedDbUpdate := testutil.NewValueDeploymentBinding()
+	expectedSsbUpdate := testutil.NewValueStatefulSetBinding()
+	expectedKsbUpdate := testutil.NewValueKnativeServiceBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -599,23 +788,33 @@ func TestUpdateConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.UpdateConfigMapKconfig()
-	kcb := testutil.ConfigMapKconfigBinding(0, testutil.DefaultConfigMapName)
+	db := testutil.ConfigMapDeploymentBinding(0, testutil.DefaultConfigMapName)
+	ssb := testutil.ConfigMapStatefulSetBinding(0, testutil.DefaultConfigMapName)
+	ksb := testutil.ConfigMapKnativeServiceBinding(0, testutil.DefaultConfigMapName)
 	cm := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
-	expectedkcupdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.ConfigMapKconfigBinding(1, testutil.DefaultConfigMapName)
-	expectedcmupdate := testutil.ConfigMapWithNewData(testutil.DefaultConfigMapName)
+	expectedKcUpdate := testutil.ConfigMapKconfig(testutil.DefaultConfigMapName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.ConfigMapDeploymentBinding(1, testutil.DefaultConfigMapName)
+	expectedSsbUpdate := testutil.ConfigMapStatefulSetBinding(1, testutil.DefaultConfigMapName)
+	expectedKsbUpdate := testutil.ConfigMapKnativeServiceBinding(1, testutil.DefaultConfigMapName)
+	expectedCmUpdate := testutil.ConfigMapWithNewData(testutil.DefaultConfigMapName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.configmapLister = append(f.configmapLister, &cm)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 	f.stdobjects = append(f.stdobjects, &cm)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectUpdateConfigMapAction(&expectedcmupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectUpdateConfigMapAction(&expectedCmUpdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -625,23 +824,33 @@ func TestUpdateSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.UpdateSecretKconfig()
-	kcb := testutil.SecretKconfigBinding(0, testutil.DefaultSecretName)
+	db := testutil.SecretDeploymentBinding(0, testutil.DefaultSecretName)
+	ssb := testutil.SecretStatefulSetBinding(0, testutil.DefaultSecretName)
+	ksb := testutil.SecretKnativeServiceBinding(0, testutil.DefaultSecretName)
 	secret := testutil.SecretWithData(testutil.DefaultSecretName)
-	expectedkcupdate := testutil.SecretKconfig(testutil.DefaultSecretName)
-	expectedkcupdate.Spec.EnvRefsVersion++
-	expectedkcbupdate := testutil.SecretKconfigBinding(1, testutil.DefaultSecretName)
-	expectedsecretupdate := testutil.SecretWithNewData(testutil.DefaultSecretName)
+	expectedKcUpdate := testutil.SecretKconfig(testutil.DefaultSecretName)
+	expectedKcUpdate.Spec.EnvRefsVersion++
+	expectedDbUpdate := testutil.SecretDeploymentBinding(1, testutil.DefaultSecretName)
+	expectedSsbUpdate := testutil.SecretStatefulSetBinding(1, testutil.DefaultSecretName)
+	expectedKsbUpdate := testutil.SecretKnativeServiceBinding(1, testutil.DefaultSecretName)
+	expectedSecretUpdate := testutil.SecretWithNewData(testutil.DefaultSecretName)
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.secretLister = append(f.secretLister, &secret)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 	f.stdobjects = append(f.stdobjects, &secret)
 
-	f.expectUpdateKconfigAction(&expectedkcupdate)
-	f.expectUpdateSecretAction(&expectedsecretupdate)
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateKconfigAction(&expectedKcUpdate)
+	f.expectUpdateSecretAction(&expectedSecretUpdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -651,15 +860,25 @@ func TestValueDeleteKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.Kconfig()
-	kcb := testutil.ValueKconfigBinding()
-	expectedkcbupdate := testutil.EmptyKconfigEnvsKconfigBinding()
+	db := testutil.ValueDeploymentBinding()
+	ssb := testutil.ValueStatefulSetBinding()
+	ksb := testutil.ValueKnativeServiceBinding()
+	expectedDbUpdate := testutil.EmptyKconfigEnvsDeploymentBinding()
+	expectedSsbUpdate := testutil.EmptyKconfigEnvsStatefulSetBinding()
+	expectedKsbUpdate := testutil.EmptyKconfigEnvsKnativeServiceBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -669,18 +888,28 @@ func TestDeleteConfigMapKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.DeleteConfigMapKconfig()
-	kcb := testutil.ConfigMapKconfigBinding(0, testutil.DefaultConfigMapName)
+	db := testutil.ConfigMapDeploymentBinding(0, testutil.DefaultConfigMapName)
+	ssb := testutil.ConfigMapStatefulSetBinding(0, testutil.DefaultConfigMapName)
+	ksb := testutil.ConfigMapKnativeServiceBinding(0, testutil.DefaultConfigMapName)
 	cm := testutil.ConfigMapWithData(testutil.DefaultConfigMapName)
-	expectedkcbupdate := testutil.EmptyKconfigEnvsKconfigBinding()
+	expectedDbUpdate := testutil.EmptyKconfigEnvsDeploymentBinding()
+	expectedSsbUpdate := testutil.EmptyKconfigEnvsStatefulSetBinding()
+	expectedKsbUpdate := testutil.EmptyKconfigEnvsKnativeServiceBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.configmapLister = append(f.configmapLister, &cm)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 	f.stdobjects = append(f.stdobjects, &cm)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -690,18 +919,28 @@ func TestDeleteSecretKconfig(t *testing.T) {
 	f := newFixture(t)
 
 	kc := testutil.DeleteSecretKconfig()
-	kcb := testutil.SecretKconfigBinding(0, testutil.DefaultSecretName)
+	db := testutil.SecretDeploymentBinding(0, testutil.DefaultSecretName)
+	ssb := testutil.SecretStatefulSetBinding(0, testutil.DefaultSecretName)
+	ksb := testutil.SecretKnativeServiceBinding(0, testutil.DefaultSecretName)
 	secret := testutil.SecretWithData(testutil.DefaultSecretName)
-	expectedkcbupdate := testutil.EmptyKconfigEnvsKconfigBinding()
+	expectedDbUpdate := testutil.EmptyKconfigEnvsDeploymentBinding()
+	expectedSsbUpdate := testutil.EmptyKconfigEnvsStatefulSetBinding()
+	expectedKsbUpdate := testutil.EmptyKconfigEnvsKnativeServiceBinding()
 
 	f.kconfigLister = append(f.kconfigLister, &kc)
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.secretLister = append(f.secretLister, &secret)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 	f.stdobjects = append(f.stdobjects, &secret)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.run(key)
@@ -714,14 +953,24 @@ func TestKconfigDeletionRemovesKconfigEnvs(t *testing.T) {
 	now := metav1.Now()
 	kc.ObjectMeta.DeletionTimestamp = &now
 
-	kcb := testutil.ValueKconfigBinding()
-	expectedkcbupdate := testutil.KconfigBinding()
+	db := testutil.ValueDeploymentBinding()
+	ssb := testutil.ValueStatefulSetBinding()
+	ksb := testutil.ValueKnativeServiceBinding()
+	expectedDbUpdate := testutil.DeploymentBinding()
+	expectedSsbUpdate := testutil.StatefulSetBinding()
+	expectedKsbUpdate := testutil.KnativeServiceBinding()
 
-	f.kbindingLister = append(f.kbindingLister, &kcb)
+	f.deploymentBindingLister = append(f.deploymentBindingLister, &db)
+	f.statefulSetBindingLister = append(f.statefulSetBindingLister, &ssb)
+	f.knativeServiceBindingLister = append(f.knativeServiceBindingLister, &ksb)
 	f.kcobjects = append(f.kcobjects, &kc)
-	f.kcobjects = append(f.kcobjects, &kcb)
+	f.kcobjects = append(f.kcobjects, &db)
+	f.kcobjects = append(f.kcobjects, &ssb)
+	f.kcobjects = append(f.kcobjects, &ksb)
 
-	f.expectUpdateKconfigBindingAction(&expectedkcbupdate)
+	f.expectUpdateDeploymentBindingAction(&expectedDbUpdate)
+	f.expectUpdateStatefulSetBindingAction(&expectedSsbUpdate)
+	f.expectUpdateKnativeServiceBindingAction(&expectedKsbUpdate)
 
 	key, _ := cache.MetaNamespaceKeyFunc(&kc.ObjectMeta)
 	f.runDelete(cache.DeletedFinalStateUnknown{Key: key, Obj: &kc})

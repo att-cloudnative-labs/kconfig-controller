@@ -36,10 +36,6 @@ func (c *FakeKconfigcontrollerV1alpha1) Kconfigs(namespace string) v1alpha1.Kcon
 	return &FakeKconfigs{c, namespace}
 }
 
-func (c *FakeKconfigcontrollerV1alpha1) KconfigBindings(namespace string) v1alpha1.KconfigBindingInterface {
-	return &FakeKconfigBindings{c, namespace}
-}
-
 func (c *FakeKconfigcontrollerV1alpha1) KnativeServiceBindings(namespace string) v1alpha1.KnativeServiceBindingInterface {
 	return &FakeKnativeServiceBindings{c, namespace}
 }

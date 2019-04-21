@@ -49,8 +49,12 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Kconfig{},
 		&KconfigList{},
-		&KconfigBinding{},
-		&KconfigBindingList{},
+		&DeploymentBinding{},
+		&DeploymentBindingList{},
+		&StatefulSetBinding{},
+		&StatefulSetBindingList{},
+		&KnativeServiceBinding{},
+		&KnativeServiceBindingList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

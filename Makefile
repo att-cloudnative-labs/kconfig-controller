@@ -1,5 +1,5 @@
 # Go parameters
-VERSION=v0.6.0-beta-1
+VERSION=v0.7.0-beta-knative-1
 DOCKERIMAGE=docker-registry.aeg.cloud/common-system/kconfig-controller
 GOCMD=go
 GOBUILD=$(GOCMD) build
