@@ -8,7 +8,7 @@ import (
 	"github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/kconfigcontroller/v1alpha1"
 	kcfake "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned/fake"
 	kcinformers "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions"
-	testutil "github.com/att-cloudnative-labs/test/util"
+	testutil "github.com/att-cloudnative-labs/kconfig-controller/test/util"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

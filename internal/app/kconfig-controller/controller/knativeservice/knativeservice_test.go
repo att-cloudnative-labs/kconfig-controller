@@ -7,8 +7,8 @@ import (
 	"github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/kconfigcontroller/v1alpha1"
 	kcfake "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned/fake"
 	kcinformers "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions"
-	knfake "github.com/att-cloudnative-labs/test/knativefakes"
-	testutil "github.com/att-cloudnative-labs/test/util"
+	knfake "github.com/att-cloudnative-labs/kconfig-controller/test/knativefakes"
+	testutil "github.com/att-cloudnative-labs/kconfig-controller/test/util"
 	knv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	kninformers "github.com/knative/serving/pkg/client/informers/externalversions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +58,7 @@ func newFixture(t *testing.T) *fixture {
 func (f *fixture) newController() (*Controller, kcinformers.SharedInformerFactory, kninformers.SharedInformerFactory, stdinformers.SharedInformerFactory, error) {
 	f.stdclient = stdfake.NewSimpleClientset(f.stdobjects...)
 	f.kcclient = kcfake.NewSimpleClientset(f.kcobjects...)
+	f.knclient = knfake.NewSimpleClientset(f.knobjects...)
 
 	stdInformers := stdinformers.NewSharedInformerFactory(f.stdclient, 0)
 	kcInformers := kcinformers.NewSharedInformerFactory(f.kcclient, 0)
@@ -218,7 +219,7 @@ func (f *fixture) expectCreateKnativeServiceBindingAction(k *v1alpha1.KnativeSer
 	resource := schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "KnativeServiceBindings",
+		Resource: "knativeservicebindings",
 	}
 	action := core.NewCreateAction(resource, k.Namespace, k)
 	f.kcactions = append(f.kcactions, action)
@@ -228,7 +229,7 @@ func (f *fixture) expectUpdateKnativeServiceBindingAction(k *v1alpha1.KnativeSer
 	resource := schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "KnativeServiceBindings",
+		Resource: "knativeservicebindings",
 	}
 	action := core.NewUpdateAction(resource, k.Namespace, k)
 	f.kcactions = append(f.kcactions, action)
@@ -238,7 +239,7 @@ func (f *fixture) expectDeleteKnativeServiceBindingAction(k *v1alpha1.KnativeSer
 	resource := schema.GroupVersionResource{
 		Group:    v1alpha1.SchemeGroupVersion.Group,
 		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "KnativeServiceBindings",
+		Resource: "knativeservicebindings",
 	}
 	action := core.NewDeleteAction(resource, k.Namespace, k.Name)
 	f.kcactions = append(f.kcactions, action)
