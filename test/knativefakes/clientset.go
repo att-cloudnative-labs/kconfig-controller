@@ -2,9 +2,9 @@ package knativefakes
 
 
 import (
-	fakeautoscalingv1alpha1 "github.com/gbraxton/kconfig/test/knativefakes/typed/autoscaling/v1alpha1/fake"
-	fakenetworkingv1alpha1 "github.com/gbraxton/kconfig/test/knativefakes/typed/networking/v1alpha1/fake"
-	fakeservingv1alpha1 "github.com/gbraxton/kconfig/test/knativefakes/typed/serving/v1alpha1/fake"
+	fakeautoscalingv1alpha1 "github.com/att-cloudnative-labs/test/knativefakes/typed/autoscaling/v1alpha1/fake"
+	fakenetworkingv1alpha1 "github.com/att-cloudnative-labs/test/knativefakes/typed/networking/v1alpha1/fake"
+	fakeservingv1alpha1 "github.com/att-cloudnative-labs/test/knativefakes/typed/serving/v1alpha1/fake"
 	servingscheme "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	knclientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	autoscalingv1alpha1 "github.com/knative/serving/pkg/client/clientset/versioned/typed/autoscaling/v1alpha1"

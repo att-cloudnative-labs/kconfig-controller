@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
-	internalinterfaces "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/internalinterfaces"
-	kconfigcontroller "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller"
+	versioned "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions/internalinterfaces"
+	kconfigcontroller "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions/kconfigcontroller"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

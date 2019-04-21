@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	kconfigcontroller "github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller"
+	kconfigcontroller "github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/kconfigcontroller"
 )
 
 // SchemeGroupVersion is group version used to register these objects

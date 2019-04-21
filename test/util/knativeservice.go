@@ -1,7 +1,7 @@
 package util
 
 import (
-	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
+	"github.com/att-cloudnative-labs/kconfig-controller/internal/app/kconfig-controller/controller"
 	knv1alpha1 "github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

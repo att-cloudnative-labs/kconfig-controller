@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/typed/kconfigcontroller/v1alpha1"
+	v1alpha1 "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned/typed/kconfigcontroller/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )

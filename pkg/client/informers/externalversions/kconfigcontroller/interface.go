@@ -19,8 +19,8 @@ limitations under the License.
 package kconfigcontroller
 
 import (
-	internalinterfaces "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
+	internalinterfaces "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.

@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	internalinterfaces "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

@@ -9,7 +9,7 @@ import (
 
 	"k8s.io/klog"
 
-	"github.com/gbraxton/kconfig/cmd/kconfig-controller/app"
+	"github.com/att-cloudnative-labs/kconfig-controller/cmd/kconfig-controller/app"
 )
 
 func main() {
