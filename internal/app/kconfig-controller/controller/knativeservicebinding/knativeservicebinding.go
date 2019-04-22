@@ -269,18 +269,10 @@ func (c *Controller) processKnativeServiceBinding(knativeServiceBinding *kcv1alp
 }
 
 func applyKconfigEnvToConfiguration(configuration knv1alpha1.ConfigurationSpec, envArray []corev1.EnvVar, envRefsVersions string) knv1alpha1.ConfigurationSpec {
-	// I dont get why this is an error when RevisionTemplate is defined as a pointer to a RevisionTemplateSpec (should be able to be nil)
-	// if configuration.RevisionTemplate == nil {
-	// 	configuration.RevisionTemplate = &knv1alpha1.RevisionTemplateSpec{}
-	// }
 	if configuration.RevisionTemplate.ObjectMeta.Annotations == nil {
 		configuration.RevisionTemplate.ObjectMeta.Annotations = make(map[string]string, 0)
 	}
 	configuration.RevisionTemplate.ObjectMeta.Annotations[controller.KconfigEnvRefVersionAnnotation] = envRefsVersions
-	// This too
-	// if configuration.RevisionTemplate.Spec.Container == nil {
-	// 	configuration.RevisionTemplate.Spec.Container = &corev1.Container{}
-	// }
 	configuration.RevisionTemplate.Spec.Container.Env = envArray
 	return configuration
 }
