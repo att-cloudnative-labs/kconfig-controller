@@ -2,6 +2,14 @@
 
 ## Development release
 
+0.7.0-BETA-1
+
+- KconfigBindings renamed to DeploymentBinding
+- Support for StatefulSets with an accompanying resource StatefulSetBinding
+- Support for Knative Services with an accompanying resource KnativeServiceBinding
+- Pkg names are now aligned with github location
+- Binary and k8s resources renamed from kconfig-controller-manager to kconfig-controller
+
 0.6.0-BETA-1
 
 - ExternalResources (ConfigMaps/Secrets) are now updated in one kubernetes api call per resource. Previously, multiple value changes (or adds) would result in an attempt to update the secret or configmap for each change. This would create a conflict error forcing the remaining values to be updated in retries.
