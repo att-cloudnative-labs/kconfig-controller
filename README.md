@@ -1,5 +1,41 @@
 # Kconfig
 
+---
+
+<p align="center">
+  <a href="https://goreportcard.com/report/github.com/att-cloudnative-labs/kconfig-controller" alt="Go Report Card">
+    <img src="https://goreportcard.com/badge/github.com/att-cloudnative-labs/kconfig-controller">
+  </a>	
+</p>
+<p align="center">
+    <a href="https://github.com/att-cloudnative-labs/kconfig-controller/graphs/contributors" alt="Contributors">
+		<img src="https://img.shields.io/github/contributors/att-cloudnative-labs/kconfig-controller.svg">
+	</a>
+	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/commits/master" alt="Commits">
+		<img src="https://img.shields.io/github/commit-activity/m/att-cloudnative-labs/kconfig-controller.svg">
+	</a>
+	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/pulls" alt="Open pull requests">
+		<img src="https://img.shields.io/github/issues-pr-raw/att-cloudnative-labs/kconfig-controller.svg">
+	</a>
+	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/pulls" alt="Closed pull requests">
+    	<img src="https://img.shields.io/github/issues-pr-closed-raw/att-cloudnative-labs/kconfig-controller.svg">
+	</a>
+	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/issues" alt="Issues">
+		<img src="https://img.shields.io/github/issues-raw/att-cloudnative-labs/kconfig-controller.svg">
+	</a>
+	</p>
+<p align="center">
+	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/stargazers" alt="Stars">
+		<img src="https://img.shields.io/github/stars/att-cloudnative-labs/kconfig-controller.svg?style=social">
+	</a>	
+	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/watchers" alt="Watchers">
+		<img src="https://img.shields.io/github/watchers/att-cloudnative-labs/kconfig-controller.svg?style=social">
+	</a>	
+	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/network/members" alt="Forks">
+		<img src="https://img.shields.io/github/forks/att-cloudnative-labs/kconfig-controller.svg?style=social">
+	</a>	
+</p>
+
 ----
 
 Kconfig is a Kubernetes Custom-controller and CRD for externalizing configuration of Kubernetes deployments. Kconfig allows environment variables to be defined in a single resource that selects deployments based on labels, and inserts the specified environment variables into the deployment.
