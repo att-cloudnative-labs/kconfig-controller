@@ -1,14 +1,14 @@
 package util
 
 import (
-	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
+	"github.com/att-cloudnative-labs/kconfig-controller/internal/app/kconfig-controller/controller"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TypeMeta returns Deployment TypeMeta
-func TypeMeta() metav1.TypeMeta {
+// DeploymentTypeMeta returns Deployment TypeMeta
+func DeploymentTypeMeta() metav1.TypeMeta {
 	return metav1.TypeMeta{
 		APIVersion: appsv1.SchemeGroupVersion.String(),
 		Kind:       "Deployment",
@@ -18,7 +18,7 @@ func TypeMeta() metav1.TypeMeta {
 // Deployment returns base deployment
 func Deployment() appsv1.Deployment {
 	return appsv1.Deployment{
-		TypeMeta: TypeMeta(),
+		TypeMeta: DeploymentTypeMeta(),
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: DefaultNamespace,
 			Name:      DefaultName,
@@ -48,7 +48,7 @@ func Deployment() appsv1.Deployment {
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
-						corev1.Container{
+						{
 							Env: []corev1.EnvVar{},
 						},
 					},
@@ -62,7 +62,7 @@ func Deployment() appsv1.Deployment {
 func ValueDeployment() appsv1.Deployment {
 	d := Deployment()
 	envs := []corev1.EnvVar{
-		corev1.EnvVar{
+		{
 			Name:  DefaultKey,
 			Value: DefaultValue,
 		},

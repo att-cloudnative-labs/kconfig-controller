@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	kconfigv1alpha1 "github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
+	kconfigv1alpha1 "github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/kconfigcontroller/v1alpha1"
 )
 
 // ByLevel sort function for KconfigEnvs

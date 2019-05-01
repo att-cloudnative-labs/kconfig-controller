@@ -25,8 +25,8 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SCRIPT_ROOT}; ls -d -1 ./vendor/k8s.io/code-ge
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
-${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
-  github.com/gbraxton/kconfig/pkg/client github.com/gbraxton/kconfig/pkg/apis \
+${SCRIPT_ROOT}/hack/generate-groups.sh "deepcopy,client,informer,lister" \
+  github.com/att-cloudnative-labs/kconfig-controller/pkg/client github.com/att-cloudnative-labs/kconfig-controller/pkg/apis \
   kconfigcontroller:v1alpha1 \
   --output-base "$(dirname ${BASH_SOURCE})/../../../.." \
   --go-header-file ${SCRIPT_ROOT}/hack/boilerplate.go.txt

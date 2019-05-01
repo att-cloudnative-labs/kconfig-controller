@@ -2,15 +2,15 @@
 
 ----
 
-Kconfig is a Kubernetes Custom-controller and CRD for externalizing configuration of Kubernetes deployments. Kconfig allows environment variables to be defined in a single resource that selects deployments based on labels, and inserts the specified environment variables into the deployment.
+Kconfig is a Kubernetes Custom-controller and CRD for externalizing configuration of Kubernetes deployments, statefulsets, and knative services. Kconfig allows environment variables to be defined in a single resource that selects the target workload resource based on labels, and inserts the specified environment variables into the target workload resource.
 
-Multiple Kconfig resources can select a single deployment and the deployment will have the aggregation of each of those Kconfigs. In addition, Kconfigs have a level field which determines the order, in relation to other Kconfigs that select the same deployment, in which enviroment variables from multiple Kconfigs are defined in the container environment.
+Multiple Kconfig resources can select a single target resource and the target will have the aggregation of each of those Kconfigs. In addition, Kconfigs have a level field which determines the order, in relation to other Kconfigs that select the same target resource, in which environment variables from multiple Kconfigs are defined in the container environment.
 
 Aside from defining simple key/value pairs, Kconfigs can also define and reference environment variables to be stored in configmaps and/or secrets.
 
-For a deployment to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/env=true```.
+For a target to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/env=true```.
 
-Kconfigs have a secondary resource, KconfigBindings. These resources should not be created/manipulated directly by users and are used by the control loops. These KconfigBinding resources serve as a target for Kconfigs to update their changes whereafter, the controller can re-processed the contained enviroment variables for all Kconfigs that target a particular deployment. Note that there will always be one KconfigBinding for each Deployment that contains the kconfig enabled annotation shown above.
+Kconfig-controller also has secondary resources, DeploymentBindings, StatefulSetBindings, and KnativeServiceBindings. These resources should not be created/manipulated directly by users and are used by the control loops. These resources serve as a target for Kconfigs to update their changes whereafter, the controller can re-processed the contained environment variables for all Kconfigs that target a particular deployment, statefulset, or knative service. Note that there will always be one of these 'binding resources for each workload resource that contains the kconfig enabled annotation shown above.
 
 ----
 
@@ -61,7 +61,7 @@ The first envConfig is a 'Value' type. An empty type field implies a 'Value' typ
 ## Build
 
 ```bash
-docker build -f build/Dockerfile -t docker-registry.aeg.cloud/common-system/kconfig-controller:v0.6.0-beta-1 .
+docker build -f build/Dockerfile -t docker-registry.aeg.cloud/kconfig-system/kconfig-controller:v0.7.0-beta-1 .
 ```
 
 ## Installation
@@ -76,4 +76,3 @@ kubectl apply -f install/
 * Validate that all existing configmap/secret references in a Kconfig exists and if not, removed them from the Kconfig
 * Support for files form and mount locations for files through Kconfigs
 * Possible move to injecting the environment variables directly to pods through a custom admission controller
-* Support for configuring Statefulsets

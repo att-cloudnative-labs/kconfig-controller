@@ -1,12 +1,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kconfig-controller-manager
+  name: kconfig-controller
 rules:
 - apiGroups:
   - "apps"
   resources:
   - deployments
+  - statefulsets
   verbs:
   - get
   - list
@@ -31,7 +32,21 @@ rules:
   - "kconfigcontroller.atteg.com"
   resources:
   - kconfigs
-  - kconfigbindings
+  - deploymentbindings
+  - statefulsetbindings
+  - knativeservicebindings
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "serving.knative.dev"
+  resources:
+  - services
   verbs:
   - get
   - list
@@ -48,8 +63,8 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kconfig-controller-manager
+  name: kconfig-controller
 subjects:
 - kind: ServiceAccount
-  name: kconfig-controller-manager
+  name: kconfig-controller
   namespace: common-system
