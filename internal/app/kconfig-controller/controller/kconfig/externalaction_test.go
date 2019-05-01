@@ -6,7 +6,7 @@ import (
 
 	"gotest.tools/assert"
 
-	testutil "github.com/gbraxton/kconfig/test/util"
+	testutil "github.com/att-cloudnative-labs/kconfig-controller/test/util"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	stdinformers "k8s.io/client-go/informers"

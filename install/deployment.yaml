@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: common-system
-  name: kconfig-controller-manager
+  namespace: kconfig-system
+  name: kconfig-controller
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kconfig-controller-manager
+      app: kconfig-controller
   template:
     metadata:
       labels:
-        app: kconfig-controller-manager
+        app: kconfig-controller
     spec:
       containers:
-      - name: kconfig-controller-manager
+      - name: kconfig-controller
         args:
         - --logtostderr=true
         - -v=5
-        image: docker-registry.aeg.cloud/common-system/kconfig-controller:v0.6.0-beta-1
+        image: docker-registry.aeg.cloud/kconfig-system/kconfig-controller:v0.7.0-beta-1
         resources:
           requests:
             memory: 2Gi
@@ -46,4 +46,4 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
-      serviceAccountName: kconfig-controller-manager
+      serviceAccountName: kconfig-controller

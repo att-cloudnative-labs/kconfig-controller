@@ -1,12 +1,12 @@
 # Go parameters
-VERSION=v0.6.0-beta-1
-DOCKERIMAGE=docker-registry.aeg.cloud/common-system/kconfig-controller
+VERSION=v0.7.0-beta-1
+DOCKERIMAGE=docker-registry.aeg.cloud/kconfig-system/kconfig-controller
 GOCMD=go
 GOBUILD=$(GOCMD) build
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
-KCONFIGPKG=github.com/gbraxton/kconfig/cmd
+KCONFIGPKG=github.com/att-cloudnative-labs/kconfig-controller/cmd
 CLIENTSET=pkg/client/clientset/versioned/clientset.go
 BINARY_NAME=kconfig-controller
 BINARY_UNIX=$(BINARY_NAME)_unix

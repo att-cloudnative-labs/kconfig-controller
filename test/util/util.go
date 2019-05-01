@@ -1,8 +1,8 @@
 package util
 
 import (
-	"github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
-	"github.com/gbraxton/kconfig/pkg/util"
+	"github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/kconfigcontroller/v1alpha1"
+	"github.com/att-cloudnative-labs/kconfig-controller/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -252,14 +252,6 @@ func GetMultiEnvTestKconfig() v1alpha1.Kconfig {
 	}
 }
 
-// GetUnprocessedTestKconfigBinding returns test kconfigbinding with no kconfigenvs set
-func GetUnprocessedTestKconfigBinding() v1alpha1.KconfigBinding {
-	metadata := GetTestObjectMetaWithLabels()
-	return v1alpha1.KconfigBinding{
-		ObjectMeta: metadata,
-	}
-}
-
 // GetTestEnvVar1 returns test envvar
 func GetTestEnvVar1() corev1.EnvVar {
 	return corev1.EnvVar{
@@ -360,46 +352,5 @@ func GetProcessedMultiEnvTestKconfigBindingSpec() v1alpha1.KconfigBindingSpec {
 		KconfigEnvsMap: map[string]v1alpha1.KconfigEnvs{
 			TestNamespace + "/" + TestName: kconfigEnvs,
 		},
-	}
-}
-
-// GetProcessedSingleEnvTestKconfigBinding returns test kconfigbinding with no kconfigenvs set
-func GetProcessedSingleEnvTestKconfigBinding() v1alpha1.KconfigBinding {
-	metadata := GetTestObjectMetaWithLabels()
-	spec := GetProcessedSingleEnvTestKconfigBindingSpec()
-	return v1alpha1.KconfigBinding{
-		TypeMeta:   v1.TypeMeta{APIVersion: v1alpha1.SchemeGroupVersion.String()},
-		ObjectMeta: metadata,
-		Spec:       spec,
-	}
-}
-
-// GetProcessedEmptyEnvTestKconfigBinding returns test kconfigbinding with key for kconfig with empty env
-func GetProcessedEmptyEnvTestKconfigBinding() v1alpha1.KconfigBinding {
-	metadata := GetTestObjectMetaWithLabels()
-	spec := GetProcessedEmptyEnvTestKconfigBindingSpec()
-	return v1alpha1.KconfigBinding{
-		ObjectMeta: metadata,
-		Spec:       spec,
-	}
-}
-
-// GetProcessedSingleSecretEnvTestKconfigBinding returns test kconfigbinding with no kconfigenvs set
-func GetProcessedSingleSecretEnvTestKconfigBinding() v1alpha1.KconfigBinding {
-	metadata := GetTestObjectMetaWithLabels()
-	spec := GetProcessedSingleSecretEnvTestKconfigBindingSpec()
-	return v1alpha1.KconfigBinding{
-		ObjectMeta: metadata,
-		Spec:       spec,
-	}
-}
-
-// GetProcessedMultiEnvTestKconfigBinding returns test kconfigbinding with no kconfigenvs set
-func GetProcessedMultiEnvTestKconfigBinding() v1alpha1.KconfigBinding {
-	metadata := GetTestObjectMetaWithLabels()
-	spec := GetProcessedMultiEnvTestKconfigBindingSpec()
-	return v1alpha1.KconfigBinding{
-		ObjectMeta: metadata,
-		Spec:       spec,
 	}
 }

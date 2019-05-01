@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	constants "github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
-	kconfigv1alpha1 "github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
-	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
-	kcscheme "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/scheme"
-	informers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
-	listers "github.com/gbraxton/kconfig/pkg/client/listers/kconfigcontroller/v1alpha1"
+	constants "github.com/att-cloudnative-labs/kconfig-controller/internal/app/kconfig-controller/controller"
+	kconfigv1alpha1 "github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/kconfigcontroller/v1alpha1"
+	clientset "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned"
+	kcscheme "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned/scheme"
+	informers "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
+	listers "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/listers/kconfigcontroller/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,11 +34,11 @@ type Controller struct {
 	stdclient kubernetes.Interface
 	kcclient  clientset.Interface
 
-	deploymentsLister    appslisters.DeploymentLister
-	kconfigBindingLister listers.KconfigBindingLister
+	deploymentsLister       appslisters.DeploymentLister
+	deploymentBindingLister listers.DeploymentBindingLister
 
-	deploymentsSynced     cache.InformerSynced
-	kconfigBindingsSynced cache.InformerSynced
+	deploymentsSynced        cache.InformerSynced
+	deploymentBindingsSynced cache.InformerSynced
 
 	workqueue workqueue.RateLimitingInterface
 }
@@ -48,7 +48,7 @@ func NewController(
 	stdclient kubernetes.Interface,
 	kcclient clientset.Interface,
 	deploymentInformer appsinformers.DeploymentInformer,
-	kbindingInformer informers.KconfigBindingInformer) *Controller {
+	deploymentBindingInformer informers.DeploymentBindingInformer) *Controller {
 
 	runtime.Must(scheme.AddToScheme(kcscheme.Scheme))
 	eventBroadcaster := record.NewBroadcaster()
@@ -56,14 +56,14 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&event.EventSinkImpl{Interface: stdclient.CoreV1().Events("")})
 
 	controller := &Controller{
-		recorder:              eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "Kconfig-Deployment-Controller"}),
-		stdclient:             stdclient,
-		kcclient:              kcclient,
-		deploymentsLister:     deploymentInformer.Lister(),
-		kconfigBindingLister:  kbindingInformer.Lister(),
-		deploymentsSynced:     deploymentInformer.Informer().HasSynced,
-		kconfigBindingsSynced: kbindingInformer.Informer().HasSynced,
-		workqueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Deployment"),
+		recorder:                 eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "Kconfig-Deployment-Controller"}),
+		stdclient:                stdclient,
+		kcclient:                 kcclient,
+		deploymentsLister:        deploymentInformer.Lister(),
+		deploymentBindingLister:  deploymentBindingInformer.Lister(),
+		deploymentsSynced:        deploymentInformer.Informer().HasSynced,
+		deploymentBindingsSynced: deploymentBindingInformer.Informer().HasSynced,
+		workqueue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Deployment"),
 	}
 
 	klog.Info("Setting up event handlers")
@@ -99,7 +99,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced, c.kconfigBindingsSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced, c.deploymentBindingsSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -213,27 +213,28 @@ func (c *Controller) syncHandler(key string) error {
 func (c *Controller) handleDeployment(deployment *appsv1.Deployment) error {
 	namespace := deployment.Namespace
 	name := deployment.Name
-	kconfigbinding, err := c.kconfigBindingLister.KconfigBindings(namespace).Get(name)
+	deploymentBinding, err := c.deploymentBindingLister.DeploymentBindings(namespace).Get(name)
 	if err != nil && errors.IsNotFound(err) {
-		kconfigbinding, err = c.createKconfigBinding(deployment)
+		deploymentBinding, err = c.createDeploymentBinding(deployment)
 		if err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
-	kconfigbindingCopy := kconfigbinding.DeepCopy()
-	kconfigbindingCopy.SetLabels(kconfigbinding.GetLabels())
-	_, err = c.kcclient.KconfigcontrollerV1alpha1().KconfigBindings(namespace).Update(kconfigbindingCopy)
+	deploymentBindingCopy := deploymentBinding.DeepCopy()
+	deploymentBindingCopy.SetLabels(deploymentBinding.GetLabels())
+	_, err = c.kcclient.KconfigcontrollerV1alpha1().DeploymentBindings(namespace).Update(deploymentBindingCopy)
 	return err
 }
 
-func (c *Controller) createKconfigBinding(deployment *appsv1.Deployment) (*kconfigv1alpha1.KconfigBinding, error) {
+func (c *Controller) createDeploymentBinding(deployment *appsv1.Deployment) (*kconfigv1alpha1.DeploymentBinding, error) {
 	namespace := deployment.Namespace
 	name := deployment.Name
-	kconfigbinding := &kconfigv1alpha1.KconfigBinding{
+	deploymentBinding := &kconfigv1alpha1.DeploymentBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: kconfigv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "DeploymentBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -244,7 +245,7 @@ func (c *Controller) createKconfigBinding(deployment *appsv1.Deployment) (*kconf
 			KconfigEnvsMap: make(map[string]kconfigv1alpha1.KconfigEnvs),
 		},
 	}
-	return c.kcclient.KconfigcontrollerV1alpha1().KconfigBindings(namespace).Create(kconfigbinding)
+	return c.kcclient.KconfigcontrollerV1alpha1().DeploymentBindings(namespace).Create(deploymentBinding)
 }
 
 func (c *Controller) deleteHandler(obj interface{}) {
@@ -261,17 +262,17 @@ func (c *Controller) deleteHandler(obj interface{}) {
 			return
 		}
 	}
-	klog.Infof("Deleting deployment %s", d.Name)
-	kcb, err := c.kconfigBindingLister.KconfigBindings(d.Namespace).Get(d.Name)
+	klog.Infof("Deleting deploymentBinding %s", d.Name)
+	kcb, err := c.deploymentBindingLister.DeploymentBindings(d.Namespace).Get(d.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return
 		}
-		runtime.HandleError(fmt.Errorf("Error removing corresponding kconfigbinding: %s", err.Error()))
+		runtime.HandleError(fmt.Errorf("Error removing corresponding deploymentBinding: %s", err.Error()))
 		return
 	}
-	err = c.kcclient.KconfigcontrollerV1alpha1().KconfigBindings(kcb.Namespace).Delete(kcb.Name, &metav1.DeleteOptions{})
+	err = c.kcclient.KconfigcontrollerV1alpha1().DeploymentBindings(kcb.Namespace).Delete(kcb.Name, &metav1.DeleteOptions{})
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("Error removing corresponding kconfigbinding: %s", err.Error()))
+		runtime.HandleError(fmt.Errorf("Error removing corresponding deploymentBinding: %s", err.Error()))
 	}
 }

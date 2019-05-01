@@ -6,15 +6,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gbraxton/kconfig/internal/app/kconfig-controller/controller"
-	"github.com/gbraxton/kconfig/pkg/apis/kconfigcontroller/v1alpha1"
-	"github.com/gbraxton/kconfig/pkg/apis/validation"
-	"github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
-	clientset "github.com/gbraxton/kconfig/pkg/client/clientset/versioned"
-	kcscheme "github.com/gbraxton/kconfig/pkg/client/clientset/versioned/scheme"
-	informers "github.com/gbraxton/kconfig/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
-	listers "github.com/gbraxton/kconfig/pkg/client/listers/kconfigcontroller/v1alpha1"
-	"github.com/gbraxton/kconfig/pkg/util"
+	"github.com/att-cloudnative-labs/kconfig-controller/internal/app/kconfig-controller/controller"
+	"github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/kconfigcontroller/v1alpha1"
+	"github.com/att-cloudnative-labs/kconfig-controller/pkg/apis/validation"
+	"github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned"
+	clientset "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned"
+	kcscheme "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/clientset/versioned/scheme"
+	informers "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/informers/externalversions/kconfigcontroller/v1alpha1"
+	listers "github.com/att-cloudnative-labs/kconfig-controller/pkg/client/listers/kconfigcontroller/v1alpha1"
+	"github.com/att-cloudnative-labs/kconfig-controller/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,15 +44,19 @@ type Controller struct {
 	stdclient kubernetes.Interface
 	kcclient  clientset.Interface
 
-	configmaplister      corelisters.ConfigMapLister
-	secretlister         corelisters.SecretLister
-	kconfiglister        listers.KconfigLister
-	kconfigbindinglister listers.KconfigBindingLister
+	configmaplister             corelisters.ConfigMapLister
+	secretlister                corelisters.SecretLister
+	kconfiglister               listers.KconfigLister
+	deploymentBindingLister     listers.DeploymentBindingLister
+	statefulSetBindingLister    listers.StatefulSetBindingLister
+	knativeServiceBindingLister listers.KnativeServiceBindingLister
 
-	configmapsSynced      cache.InformerSynced
-	secretsSynced         cache.InformerSynced
-	kconfigsSynced        cache.InformerSynced
-	kconfigBindingsSynced cache.InformerSynced
+	configmapsSynced             cache.InformerSynced
+	secretsSynced                cache.InformerSynced
+	kconfigsSynced               cache.InformerSynced
+	deploymentBindingsSynced     cache.InformerSynced
+	statefulSetBindingsSynced    cache.InformerSynced
+	knativeServiceBindingsSynced cache.InformerSynced
 
 	workqueue workqueue.RateLimitingInterface
 }
@@ -64,7 +68,9 @@ func NewController(
 	configmapInformer coreinformers.ConfigMapInformer,
 	secretInformer coreinformers.SecretInformer,
 	kconfigInformer informers.KconfigInformer,
-	kconfigBindingInformer informers.KconfigBindingInformer) *Controller {
+	deploymentBindingInformer informers.DeploymentBindingInformer,
+	statefulSetBindingInformer informers.StatefulSetBindingInformer,
+	knativeServiceBindingInformer informers.KnativeServiceBindingInformer) *Controller {
 
 	runtime.Must(scheme.AddToScheme(kcscheme.Scheme))
 	eventBroadcaster := record.NewBroadcaster()
@@ -72,18 +78,22 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&event.EventSinkImpl{Interface: stdclient.CoreV1().Events("")})
 
 	controller := &Controller{
-		recorder:              eventBroadcaster.NewRecorder(kcscheme.Scheme, corev1.EventSource{Component: "kconfig-controller"}),
-		stdclient:             stdclient,
-		kcclient:              kcclient,
-		configmaplister:       configmapInformer.Lister(),
-		secretlister:          secretInformer.Lister(),
-		kconfiglister:         kconfigInformer.Lister(),
-		kconfigbindinglister:  kconfigBindingInformer.Lister(),
-		configmapsSynced:      configmapInformer.Informer().HasSynced,
-		secretsSynced:         secretInformer.Informer().HasSynced,
-		kconfigsSynced:        kconfigInformer.Informer().HasSynced,
-		kconfigBindingsSynced: kconfigBindingInformer.Informer().HasSynced,
-		workqueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Kconfig"),
+		recorder:                     eventBroadcaster.NewRecorder(kcscheme.Scheme, corev1.EventSource{Component: "kconfig-controller"}),
+		stdclient:                    stdclient,
+		kcclient:                     kcclient,
+		configmaplister:              configmapInformer.Lister(),
+		secretlister:                 secretInformer.Lister(),
+		kconfiglister:                kconfigInformer.Lister(),
+		deploymentBindingLister:      deploymentBindingInformer.Lister(),
+		statefulSetBindingLister:     statefulSetBindingInformer.Lister(),
+		knativeServiceBindingLister:  knativeServiceBindingInformer.Lister(),
+		configmapsSynced:             configmapInformer.Informer().HasSynced,
+		secretsSynced:                secretInformer.Informer().HasSynced,
+		kconfigsSynced:               kconfigInformer.Informer().HasSynced,
+		deploymentBindingsSynced:     deploymentBindingInformer.Informer().HasSynced,
+		statefulSetBindingsSynced:    statefulSetBindingInformer.Informer().HasSynced,
+		knativeServiceBindingsSynced: knativeServiceBindingInformer.Informer().HasSynced,
+		workqueue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Kconfig"),
 	}
 
 	klog.Info("Setting up event handlers")
@@ -120,7 +130,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.configmapsSynced, c.secretsSynced, c.kconfigsSynced, c.kconfigBindingsSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.configmapsSynced, c.secretsSynced, c.kconfigsSynced, c.deploymentBindingsSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -228,7 +238,7 @@ func (c *Controller) syncHandler(key string) error {
 
 func (c *Controller) processKconfig(kconfig *v1alpha1.Kconfig) error {
 	// updatedRefs boolean tracks if there was a value change to a configmap/secret.
-	// When true, the current Kconfig generation is set in the KconfigEnv of the KconfigBinding
+	// When true, the current Kconfig generation is set in the KconfigEnv of the DeploymentBinding
 	// to force an update of the deployment since no change is in the EnvVars
 	updatedRefs := false
 	externalActionCache := NewExternalActionCache()
@@ -250,28 +260,36 @@ func (c *Controller) processKconfig(kconfig *v1alpha1.Kconfig) error {
 		}
 	}
 	kconfigEnvs := buildKconfigEnv(updatedKconfig.Spec.Level, updatedKconfig.Spec.EnvRefsVersion, updatedEnvConfigs)
-	err := c.updateKconfigBindings(updatedKconfig, kconfigEnvs)
+	err := c.updateDeploymentBindings(updatedKconfig, kconfigEnvs)
+	if err != nil {
+		return err
+	}
+	err = c.updateStatefulSetBindings(updatedKconfig, kconfigEnvs)
+	if err != nil {
+		return err
+	}
+	err = c.updateKnativeServiceBindings(updatedKconfig, kconfigEnvs)
 	return err
 }
 
-func (c *Controller) updateKconfigBindings(kconfig *v1alpha1.Kconfig, kconfigEnvs v1alpha1.KconfigEnvs) error {
+func (c *Controller) updateDeploymentBindings(kconfig *v1alpha1.Kconfig, kconfigEnvs v1alpha1.KconfigEnvs) error {
 	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
 	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
 	if err != nil {
 		return err
 	}
-	kconfigBindings, err := c.kconfigbindinglister.KconfigBindings(kconfig.Namespace).List(selector)
+	deploymentBindings, err := c.deploymentBindingLister.DeploymentBindings(kconfig.Namespace).List(selector)
 	if err != nil {
 		return err
 	}
-	for _, kconfigBinding := range kconfigBindings {
-		kconfigBindingCopy := kconfigBinding.DeepCopy()
-		if !reflect.DeepEqual(kconfigBinding.Spec.KconfigEnvsMap[envKey], kconfigEnvs) {
-			if kconfigBindingCopy.Spec.KconfigEnvsMap == nil {
-				kconfigBindingCopy.Spec.KconfigEnvsMap = make(map[string]v1alpha1.KconfigEnvs)
+	for _, deploymentBinding := range deploymentBindings {
+		deploymentBindingCopy := deploymentBinding.DeepCopy()
+		if !reflect.DeepEqual(deploymentBinding.Spec.KconfigEnvsMap[envKey], kconfigEnvs) {
+			if deploymentBindingCopy.Spec.KconfigEnvsMap == nil {
+				deploymentBindingCopy.Spec.KconfigEnvsMap = make(map[string]v1alpha1.KconfigEnvs)
 			}
-			kconfigBindingCopy.Spec.KconfigEnvsMap[envKey] = kconfigEnvs
-			_, err := c.kcclient.KconfigcontrollerV1alpha1().KconfigBindings(kconfig.Namespace).Update(kconfigBindingCopy)
+			deploymentBindingCopy.Spec.KconfigEnvsMap[envKey] = kconfigEnvs
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().DeploymentBindings(kconfig.Namespace).Update(deploymentBindingCopy)
 			if err != nil {
 				return err
 			}
@@ -280,28 +298,136 @@ func (c *Controller) updateKconfigBindings(kconfig *v1alpha1.Kconfig, kconfigEnv
 	return nil
 }
 
-func (c *Controller) removeKconfigEnvsFromKconfigBindings(kconfig *v1alpha1.Kconfig) {
+func (c *Controller) updateStatefulSetBindings(kconfig *v1alpha1.Kconfig, kconfigEnvs v1alpha1.KconfigEnvs) error {
 	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
 	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from KconfigBinding: %+v", err.Error()))
-		return
+		return err
 	}
-	kconfigBindings, err := c.kconfigbindinglister.KconfigBindings(kconfig.Namespace).List(selector)
+	statefulSetBindings, err := c.statefulSetBindingLister.StatefulSetBindings(kconfig.Namespace).List(selector)
 	if err != nil {
-		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from KconfigBinding: %+v", err.Error()))
+		return err
+	}
+	for _, statefulSetBinding := range statefulSetBindings {
+		statefulSetBindingCopy := statefulSetBinding.DeepCopy()
+		if !reflect.DeepEqual(statefulSetBinding.Spec.KconfigEnvsMap[envKey], kconfigEnvs) {
+			if statefulSetBindingCopy.Spec.KconfigEnvsMap == nil {
+				statefulSetBindingCopy.Spec.KconfigEnvsMap = make(map[string]v1alpha1.KconfigEnvs)
+			}
+			statefulSetBindingCopy.Spec.KconfigEnvsMap[envKey] = kconfigEnvs
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().StatefulSetBindings(kconfig.Namespace).Update(statefulSetBindingCopy)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Controller) updateKnativeServiceBindings(kconfig *v1alpha1.Kconfig, kconfigEnvs v1alpha1.KconfigEnvs) error {
+	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
+	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
+	if err != nil {
+		return err
+	}
+	knativeServiceBindings, err := c.knativeServiceBindingLister.KnativeServiceBindings(kconfig.Namespace).List(selector)
+	if err != nil {
+		return err
+	}
+	for _, knativeServiceBinding := range knativeServiceBindings {
+		knativeServiceBindingCopy := knativeServiceBinding.DeepCopy()
+		if !reflect.DeepEqual(knativeServiceBinding.Spec.KconfigEnvsMap[envKey], kconfigEnvs) {
+			if knativeServiceBindingCopy.Spec.KconfigEnvsMap == nil {
+				knativeServiceBindingCopy.Spec.KconfigEnvsMap = make(map[string]v1alpha1.KconfigEnvs)
+			}
+			knativeServiceBindingCopy.Spec.KconfigEnvsMap[envKey] = kconfigEnvs
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().KnativeServiceBindings(kconfig.Namespace).Update(knativeServiceBindingCopy)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Controller) removeKconfigEnvsFromDeploymentBindings(kconfig *v1alpha1.Kconfig) {
+	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
+	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from DeploymentBinding: %+v", err.Error()))
 		return
 	}
-	for _, kconfigBinding := range kconfigBindings {
-		kconfigBindingCopy := kconfigBinding.DeepCopy()
-		if kconfigBindingCopy.Spec.KconfigEnvsMap == nil {
+	deploymentBindings, err := c.deploymentBindingLister.DeploymentBindings(kconfig.Namespace).List(selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from DeploymentBinding: %+v", err.Error()))
+		return
+	}
+	for _, deploymentBinding := range deploymentBindings {
+		deploymentBindingCopy := deploymentBinding.DeepCopy()
+		if deploymentBindingCopy.Spec.KconfigEnvsMap == nil {
 			continue
 		}
-		delete(kconfigBindingCopy.Spec.KconfigEnvsMap, envKey)
-		if !reflect.DeepEqual(kconfigBindingCopy.Spec, kconfigBinding.Spec) {
-			_, err := c.kcclient.KconfigcontrollerV1alpha1().KconfigBindings(kconfig.Namespace).Update(kconfigBindingCopy)
+		delete(deploymentBindingCopy.Spec.KconfigEnvsMap, envKey)
+		if !reflect.DeepEqual(deploymentBindingCopy.Spec, deploymentBinding.Spec) {
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().DeploymentBindings(kconfig.Namespace).Update(deploymentBindingCopy)
 			if err != nil {
-				runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from KconfigBinding: %+v", err.Error()))
+				runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from DeploymentBinding: %+v", err.Error()))
+				continue
+			}
+		}
+	}
+}
+
+func (c *Controller) removeKconfigEnvsFromStatefulSetBindings(kconfig *v1alpha1.Kconfig) {
+	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
+	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from StatefulSetBinding: %+v", err.Error()))
+		return
+	}
+	statefulSetBindings, err := c.statefulSetBindingLister.StatefulSetBindings(kconfig.Namespace).List(selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("Error removing KconfigEnvs from StatefulSetBinding: %+v", err.Error()))
+		return
+	}
+	for _, statefulSetBinding := range statefulSetBindings {
+		statefulSetBindingCopy := statefulSetBinding.DeepCopy()
+		if statefulSetBindingCopy.Spec.KconfigEnvsMap == nil {
+			continue
+		}
+		delete(statefulSetBindingCopy.Spec.KconfigEnvsMap, envKey)
+		if !reflect.DeepEqual(statefulSetBindingCopy.Spec, statefulSetBinding.Spec) {
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().StatefulSetBindings(kconfig.Namespace).Update(statefulSetBindingCopy)
+			if err != nil {
+				runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from StatefulSetBinding: %+v", err.Error()))
+				continue
+			}
+		}
+	}
+}
+
+func (c *Controller) removeKconfigEnvsFromKnativeServiceBindings(kconfig *v1alpha1.Kconfig) {
+	envKey := util.GetEnvKey(kconfig.Namespace, kconfig.Name)
+	selector, err := metav1.LabelSelectorAsSelector(&kconfig.Spec.Selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from KnativeServiceBinding: %+v", err.Error()))
+		return
+	}
+	knativeServiceBindings, err := c.knativeServiceBindingLister.KnativeServiceBindings(kconfig.Namespace).List(selector)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from KnativeServiceBinding: %+v", err.Error()))
+		return
+	}
+	for _, knativeServiceBinding := range knativeServiceBindings {
+		knativeServiceBindingCopy := knativeServiceBinding.DeepCopy()
+		if knativeServiceBindingCopy.Spec.KconfigEnvsMap == nil {
+			continue
+		}
+		delete(knativeServiceBindingCopy.Spec.KconfigEnvsMap, envKey)
+		if !reflect.DeepEqual(knativeServiceBindingCopy.Spec, knativeServiceBinding.Spec) {
+			_, err := c.kcclient.KconfigcontrollerV1alpha1().KnativeServiceBindings(kconfig.Namespace).Update(knativeServiceBindingCopy)
+			if err != nil {
+				runtime.HandleError(fmt.Errorf("error removing KconfigEnvs from KnativeServiceBinding: %+v", err.Error()))
 				continue
 			}
 		}
@@ -313,18 +439,22 @@ func (c *Controller) deleteHandler(obj interface{}) {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			runtime.HandleError(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+			runtime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
 			return
 		}
 		kc, ok = tombstone.Obj.(*v1alpha1.Kconfig)
 		if !ok {
-			runtime.HandleError(fmt.Errorf("Tombstone contained object that is not a Kconfig %#v", obj))
+			runtime.HandleError(fmt.Errorf("tombstone contained object that is not a Kconfig %#v", obj))
 			return
 		}
 	}
 	klog.Infof("Deleting kconfig %s", kc.Name)
-	c.removeKconfigEnvsFromKconfigBindings(kc)
+	c.removeKconfigEnvsFromDeploymentBindings(kc)
+	c.removeKconfigEnvsFromStatefulSetBindings(kc)
+	c.removeKconfigEnvsFromKnativeServiceBindings(kc)
 }
+
+
 
 func processEnvConfigValues(kconfigName string, origEnvConfigs []v1alpha1.EnvConfig, externalActionCache *ExternalActionCache, updatedRefs *bool) []v1alpha1.EnvConfig {
 	updatedEnvConfigs := make([]v1alpha1.EnvConfig, 0)
