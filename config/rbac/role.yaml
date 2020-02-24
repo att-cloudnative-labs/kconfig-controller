@@ -1,0 +1,48 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - kconfigcontroller.atteg.com
+  resources:
+  - kconfigbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kconfigcontroller.atteg.com
+  resources:
+  - kconfigbindings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - kconfigcontroller.atteg.com
+  resources:
+  - kconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kconfigcontroller.atteg.com
+  resources:
+  - kconfigs/status
+  verbs:
+  - get
+  - patch
+  - update

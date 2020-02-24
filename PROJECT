@@ -1,0 +1,10 @@
+domain: atteg.com
+repo: github.com/att-cloudnative-labs/kconfig-controller
+resources:
+- group: kconfigcontroller
+  kind: Kconfig
+  version: v1beta1
+- group: kconfigcontroller
+  kind: KconfigBinding
+  version: v1beta1
+version: "2"
