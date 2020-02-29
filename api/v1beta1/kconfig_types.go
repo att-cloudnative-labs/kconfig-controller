@@ -25,7 +25,8 @@ import (
 
 // KconfigSpec defines the desired state of Kconfig
 type KconfigSpec struct {
-	Level      int                  `json:"level"`
+	Level int `json:"level"`
+	// +kubebuilder:validation:Optional
 	Selector   metav1.LabelSelector `json:"selector"`
 	EnvConfigs []EnvConfig          `json:"envConfigs"`
 }
@@ -33,12 +34,18 @@ type KconfigSpec struct {
 // EnvConfig represents a single environment variable configuration
 type EnvConfig struct {
 	// Type should be immutable
-	Type             string                    `json:"type"`
-	Key              string                    `json:"key"`
-	Value            *string                   `json:"value,omitempty"`
-	ConfigMapKeyRef  *v1.ConfigMapKeySelector  `json:"configMapKeyRef,omitempty"`
-	SecretKeyRef     *v1.SecretKeySelector     `json:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
-	FieldRef         *v1.ObjectFieldSelector   `json:"fieldRef,omitempty" protobuf:"bytes,4,opt,name=fieldRef"`
+	// +kubebuilder:validation:Optional
+	Type string `json:"type"`
+	Key  string `json:"key"`
+	// +kubebuilder:validation:Optional
+	Value *string `json:"value,omitempty"`
+	// +kubebuilder:validation:Optional
+	ConfigMapKeyRef *v1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+	// +kubebuilder:validation:Optional
+	SecretKeyRef *v1.SecretKeySelector `json:"secretKeyRef,omitempty" protobuf:"bytes,4,opt,name=secretKeyRef"`
+	// +kubebuilder:validation:Optional
+	FieldRef *v1.ObjectFieldSelector `json:"fieldRef,omitempty" protobuf:"bytes,4,opt,name=fieldRef"`
+	// +kubebuilder:validation:Optional
 	ResourceFieldRef *v1.ResourceFieldSelector `json:"resourceFieldRef,omitempty" protobuf:"bytes,4,opt,name=resourceFieldRef"`
 }
 

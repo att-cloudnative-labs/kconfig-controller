@@ -46,6 +46,8 @@ Aside from defining simple key/value pairs, Kconfigs can also define and referen
 
 For a target to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/inject=true```.
 
+Add the annotation, ```kconfigcontroller.atteg.com/refresh-template=true``` to have updates to a kconfig to trigger a rolling update for deployments, statefulsets of the selected pods.
+
 Kconfig-controller also has a secondary custom resource, KconfigBinding, that is used by the controllers and should not be created/manipulated directly by users. This resources serve as a target for Kconfigs to update their changes whereafter, the admission-controller can import the contained environment variables directly into pods. Note that there is a one-to-one mapping for each kconfig and kconfigbinding.
 
 Build requires Kustomize (https://github.com/kubernetes-sigs/kustomize) locally and cert-manager (https://github.com/jetstack/cert-manager) installed in the kubernetes cluser for the admission-controller's TLS certificates.

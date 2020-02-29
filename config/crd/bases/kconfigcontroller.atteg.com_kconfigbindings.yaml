@@ -184,7 +184,6 @@ spec:
           required:
           - envs
           - level
-          - selector
           type: object
         status:
           description: KconfigBindingStatus defines the observed state of KconfigBinding

@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: docker-registry.aeg.cloud/kcnfig-system/kconfig-controller
-  newTag: ref-202002231749
+  newName: docker-registry.aeg.cloud/kconfig-system/kconfig-controller
+  newTag: v1beta1-202002261210

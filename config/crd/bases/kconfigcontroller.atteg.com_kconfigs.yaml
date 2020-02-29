@@ -115,7 +115,6 @@ spec:
                     type: string
                 required:
                 - key
-                - type
                 type: object
               type: array
             level:
@@ -169,7 +168,6 @@ spec:
           required:
           - envConfigs
           - level
-          - selector
           type: object
         status:
           description: KconfigStatus defines the observed state of Kconfig

@@ -45,6 +45,7 @@ type KconfigReconciler struct {
 
 // +kubebuilder:rbac:groups=kconfigcontroller.atteg.com,resources=kconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kconfigcontroller.atteg.com,resources=kconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
 
 func (r *KconfigReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -129,9 +130,10 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 func (r *KconfigReconciler) processValueEnvConfig(ec kconfigcontrollerv1beta1.EnvConfig, envVars *[]v1.EnvVar, updatedECs *[]kconfigcontrollerv1beta1.EnvConfig) error {
 	if ec.Key == "" || ec.Value == nil {
 		r.Recorder.Event(&kconfigcontrollerv1beta1.Kconfig{}, WarningEventType, InvalidEnvConfigEvent, "Either key or value is empty for value type EnvConfig. This entry will be removed")
+		return nil
 	}
 	*envVars = append(*envVars, v1.EnvVar{Name: ec.Key, Value: *ec.Value})
-	*updatedECs = append(*updatedECs, *ec.DeepCopy())
+	*updatedECs = append(*updatedECs, kconfigcontrollerv1beta1.EnvConfig{Type: ValueEnvConfigType, Key: ec.Key, Value: ec.Value})
 	return nil
 }
 

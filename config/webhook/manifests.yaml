@@ -12,7 +12,7 @@ webhooks:
       name: webhook-service
       namespace: system
       path: /mutate-v1-pod
-  failurePolicy: Fail
+  failurePolicy: Ignore
   name: config-injector.kconfigcontroller.aeg.cloud
   rules:
   - apiGroups:

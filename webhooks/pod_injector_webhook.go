@@ -35,12 +35,12 @@ const (
 	InjectConfigAnnotation = "kconfigcontroller.atteg.com/inject"
 )
 
-// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud
+// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud
 
 type PodConfigInjector struct {
 	Client  client.Client
 	decoder *admission.Decoder
-	Log             logr.Logger
+	Log     logr.Logger
 }
 
 func (r *PodConfigInjector) InjectDecoder(d *admission.Decoder) error {
@@ -50,6 +50,7 @@ func (r *PodConfigInjector) InjectDecoder(d *admission.Decoder) error {
 
 func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) admission.Response {
 	pod := &v1.Pod{}
+
 	err := r.decoder.Decode(req, pod)
 	if err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
@@ -61,7 +62,7 @@ func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) a
 	}
 	// get bindings that select this rs
 	kcbs := v1beta1.KconfigBindingList{}
-	if err := r.Client.List(ctx, &kcbs, client.InNamespace(pod.Namespace)); err != nil {
+	if err := r.Client.List(ctx, &kcbs, client.InNamespace(req.Namespace)); err != nil {
 		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("could not get kconfigbininglist: %s", err.Error()))
 	}
 

@@ -95,7 +95,7 @@ func main() {
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{
 		Handler: &webhooks.PodConfigInjector{
 			Client: mgr.GetClient(),
-			Log: ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
+			Log:    ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
 		},
 	})
 

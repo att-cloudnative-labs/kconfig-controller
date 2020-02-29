@@ -25,8 +25,9 @@ import (
 
 // KconfigBindingSpec defines the desired state of KconfigBinding
 type KconfigBindingSpec struct {
-	Level    int                  `json:"level"`
-	Envs     []v1.EnvVar          `json:"envs"`
+	Level int         `json:"level"`
+	Envs  []v1.EnvVar `json:"envs"`
+	// +kubebuilder:validation:Optional
 	Selector metav1.LabelSelector `json:"selector"`
 }
 
