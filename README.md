@@ -38,15 +38,19 @@
 
 ----
 
-Kconfig is a Kubernetes Custom-controller and CRD for externalizing configuration of Kubernetes deployments, statefulsets, and knative services. Kconfig allows environment variables to be defined in a single resource that selects the target workload resource based on labels, and inserts the specified environment variables into the target workload resource.
+Kconfig is a Kubernetes custom-controller, admission-webhook, and custom resource definition for externalizing configuration of Kubernetes Pods. Kconfig allows environment variables to be defined in a single resource that selects the target pods based on labels, and inserts the specified environment variables into the target pods.
 
-Multiple Kconfig resources can select a single target resource and the target will have the aggregation of each of those Kconfigs. In addition, Kconfigs have a level field which determines the order, in relation to other Kconfigs that select the same target resource, in which environment variables from multiple Kconfigs are defined in the container environment.
+Multiple Kconfig resources can select the same target labels and the target pods will have the aggregation of each of those Kconfigs. In addition, Kconfigs have a level field which determines the order, in relation to other Kconfigs that select common pods, in which environment variables from multiple Kconfigs are defined in the container environment.
 
 Aside from defining simple key/value pairs, Kconfigs can also define and reference environment variables to be stored in configmaps and/or secrets.
 
-For a target to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/env=true```.
+For a target to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/inject=true```.
 
-Kconfig-controller also has secondary resources, DeploymentBindings, StatefulSetBindings, and KnativeServiceBindings. These resources should not be created/manipulated directly by users and are used by the control loops. These resources serve as a target for Kconfigs to update their changes whereafter, the controller can re-processed the contained environment variables for all Kconfigs that target a particular deployment, statefulset, or knative service. Note that there will always be one of these 'binding resources for each workload resource that contains the kconfig enabled annotation shown above.
+Add the annotation, ```kconfigcontroller.atteg.com/refresh-template=true``` to have updates to a kconfig to trigger a rolling update for deployments, statefulsets of the selected pods.
+
+Kconfig-controller also has a secondary custom resource, KconfigBinding, that is used by the controllers and should not be created/manipulated directly by users. This resources serve as a target for Kconfigs to update their changes whereafter, the admission-controller can import the contained environment variables directly into pods. Note that there is a one-to-one mapping for each kconfig and kconfigbinding.
+
+Build requires Kustomize (https://github.com/kubernetes-sigs/kustomize) locally and cert-manager (https://github.com/jetstack/cert-manager) installed in the kubernetes cluser for the admission-controller's TLS certificates.
 
 ----
 
@@ -66,7 +70,6 @@ spec:
   - type: Secret
     key: PLEASECREATETHIS
     value: shhhhh
-    refName: samplesecret
   - type: Secret
     key: MYSECRETVAR
     secretKeyRef:
@@ -92,23 +95,27 @@ spec:
       app: myapp
 ```
 
-The first envConfig is a 'Value' type. An empty type field implies a 'Value' type envConfig. This definition would apply a simple key and value field to the target deployment's container enviroment variables. The second envConfig is a 'Secret' type. Notice that this envConfig has a value and a refName field. The refName field indicates the name of the secret that this envConfig should be stored in. If the secret does not exist, the kconfig-controller will create it and store the contents of the value field in it. After such an action takes place, the Kconfig is automatically updated with the secretKeyRef to the secret and with the value field removed. The same is true with a 'ConfigMap' type. Notice the final two envConfigs that show how the envConfig appears after a Kconfig is created/updated with a ConfigMap or Secret type envConfig that contains a value. Whenever a get Kconfig is performed, you will never see a value field, as the action is performed immediately on update and the field is automatically removed.
+The first envConfig is a 'Value' type. An empty type field implies a 'Value' type envConfig. This definition would apply a simple key and value field to the target deployment's container environment variables. The second envConfig is a 'Secret' type. Notice that this envConfig has a value and a refName field. The refName field indicates the name of the secret that this envConfig should be stored in. If the secret does not exist, the kconfig-controller will create it and store the contents of the value field in it. After such an action takes place, the Kconfig is automatically updated with the secretKeyRef to the secret and with the value field removed. The same is true with a 'ConfigMap' type. Notice the final two envConfigs that show how the envConfig appears after a Kconfig is created/updated with a ConfigMap or Secret type envConfig that contains a value. Whenever a get Kconfig is performed, you will never see a value field, as the action is performed immediately on update and the field is automatically removed.
 
-## Build
+## Build and Push
 
 ```bash
-docker build -f build/Dockerfile -t docker-registry.aeg.cloud/kconfig-system/kconfig-controller:v0.7.0-beta-1 .
+make docker-build IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
+make docker-push IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
 ```
 
 ## Installation
 
 ```bash
-kubectl apply -f install/
+make deploy IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
 ```
 
 ## Roadmap
 
-* Ability to select the container configs apply to. Currently the configs are only placed in the first container in a pod template
+* Ability to select the container configs apply to. Currently the configs are only placed in the first container in a pod spec
 * Validate that all existing configmap/secret references in a Kconfig exists and if not, removed them from the Kconfig
-* Support for files form and mount locations for files through Kconfigs
-* Possible move to injecting the environment variables directly to pods through a custom admission controller
+* Support for creating files and mount locations for files through Kconfigs
+
+---
+
+*Developed using the Kubebuilder Framework, https://github.com/kubernetes-sigs/kubebuilder

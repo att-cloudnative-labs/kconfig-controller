@@ -1,0 +1,26 @@
+# permissions to do edit kconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kconfig-editor-role
+rules:
+- apiGroups:
+  - kconfigcontroller.atteg.com
+  resources:
+  - kconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kconfigcontroller.atteg.com
+  resources:
+  - kconfigs/status
+  verbs:
+  - get
+  - patch
+  - update

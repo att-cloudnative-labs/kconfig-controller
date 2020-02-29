@@ -1,0 +1,7 @@
+apiVersion: kconfigcontroller.atteg.com/v1beta1
+kind: Kconfig
+metadata:
+  name: kconfig-sample
+spec:
+  # Add fields here
+  foo: bar

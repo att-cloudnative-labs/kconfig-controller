@@ -2,6 +2,13 @@
 
 ## Development release
 
+0.8.0-BETA-1
+- Full refactor to kubebuilder framework
+- Environment variables not added to pods directly using admission-controller
+- DeployentBindings, StatefulSetBindings, and KnativeServiceBindings removed and replaced with a single KconfigBinding resource
+- The ability to specify refName and refKey has been removed. All external references (configmap, secrets) are placed in the same resource with the name, kc-(kconfig name)
+- EnvRefsVersion removed. Changes now tracked using KconfigBinding generation and its status' observedGeneration
+
 0.7.0-BETA-1
 
 - KconfigBindings renamed to DeploymentBinding
