@@ -358,6 +358,14 @@ func (r *KconfigReconciler) updateKconfigBinding(ctx context.Context, kc *kconfi
 					Name:        kc.Name,
 					Labels:      kc.Labels,
 					Annotations: kc.Annotations,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind:       kc.Kind,
+							APIVersion: kc.APIVersion,
+							Name:       kc.Name,
+							UID:        kc.UID,
+						},
+					},
 				},
 				Spec: kconfigcontrollerv1beta1.KconfigBindingSpec{
 					Level:    0,

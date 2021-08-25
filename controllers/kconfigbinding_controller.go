@@ -135,7 +135,7 @@ func (r *KconfigBindingReconciler) updateStatefulSets(ctx context.Context, kcb k
 			statefulSetCopy.Spec.Template.Annotations = make(map[string]string)
 		}
 		generationAnnotation := fmt.Sprintf("%s%s", GenerationAnnotationPrefix, kcb.Name)
-		statefulSetCopy.Spec.Template.Annotations[generationAnnotation] = string(kcb.Generation)
+		statefulSetCopy.Spec.Template.Annotations[generationAnnotation] = fmt.Sprint(kcb.Generation)
 		if err := r.Update(ctx, statefulSetCopy); err != nil {
 			return fmt.Errorf("error updating statefulSet: %s", err.Error())
 		}
