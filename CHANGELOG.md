@@ -2,6 +2,10 @@
 
 ## Development release
 
+0.9.0-BETA-1
+- Add ContainerSector Field to Kconfig Spec. This indicates which container(s) should the Kconfig object apply to. This field is a label.Selector object, containing both MatchLabels and MatchExpression objects. A default-container-selector, set to everything, applies when the Kconfig Spec does not include a selector.
+- Default-container-selector is overrideable through the controller-manager's command line arguments. When set, the value should be the json representation of a label.Selector.
+
 0.8.0-BETA-1
 - Full refactor to kubebuilder framework
 - Environment variables not added to pods directly using admission-controller

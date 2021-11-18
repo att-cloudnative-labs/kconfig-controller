@@ -93,9 +93,13 @@ spec:
   selector:
     matchLabels:
       app: myapp
+ containerSelector:
+    matchLabels:
+      name: myapp
+
 ```
 
-The first envConfig is a 'Value' type. An empty type field implies a 'Value' type envConfig. This definition would apply a simple key and value field to the target pod's container environment variables. The second envConfig is a 'Secret' type. The Kconfig is automatically updated with the secretKeyRef to the secret and with the value field removed. The same is true with a 'ConfigMap' type. Notice the final two envConfigs that show how the envConfig appears after a Kconfig is created/updated with a ConfigMap or Secret type envConfig that contains a value. Whenever a get Kconfig is performed, you will never see a value field, as the action is performed immediately on update and the field is automatically removed.
+The first envConfig is a 'Value' type. An empty type field implies a 'Value' type envConfig. This definition would apply a simple key and value field to the target pod's container environment variables. The second envConfig is a 'Secret' type. The Kconfig is automatically updated with the secretKeyRef to the secret and with the value field removed. The same is true with a 'ConfigMap' type. Notice the final two envConfigs that show how the envConfig appears after a Kconfig is created/updated with a ConfigMap or Secret type envConfig that contains a value. Whenever a get Kconfig is performed, you will never see a value field, as the action is performed immediately on update and the field is automatically removed. ContainerSelector determines which container the configs will apply to. Containers don't have labels so the selector selects on name. Name should currently be the only key used in the selector. In absence of a ContainerSelector, the default containerSelector is used, which selects everything (all containers). this can be overridden with an argument to the controller. Example ```--default-container-selector='{"matchExpressions":[{"key":"name","operator":"NotIn","values":["istio-proxy"]}]}```
 
 ## Build and Push
 
@@ -112,7 +116,6 @@ make deploy IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v
 
 ## Roadmap
 
-* Ability to select the container configs apply to. Currently the configs are only placed in the first container in a pod spec
 * Validate that all existing configmap/secret references in a Kconfig exists and if not, removed them from the Kconfig
 * Support for creating files and mount locations for files through Kconfigs
 

@@ -27,8 +27,9 @@ import (
 type KconfigSpec struct {
 	Level int `json:"level"`
 	// +kubebuilder:validation:Optional
-	Selector   metav1.LabelSelector `json:"selector"`
-	EnvConfigs []EnvConfig          `json:"envConfigs"`
+	Selector          metav1.LabelSelector  `json:"selector"`
+	EnvConfigs        []EnvConfig           `json:"envConfigs"`
+	ContainerSelector *metav1.LabelSelector `json:"containerSelector"`
 }
 
 // EnvConfig represents a single environment variable configuration

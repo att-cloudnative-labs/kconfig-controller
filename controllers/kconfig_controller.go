@@ -368,9 +368,10 @@ func (r *KconfigReconciler) updateKconfigBinding(ctx context.Context, kc *kconfi
 					},
 				},
 				Spec: kconfigcontrollerv1beta1.KconfigBindingSpec{
-					Level:    0,
-					Envs:     make([]v1.EnvVar, 0),
-					Selector: metav1.LabelSelector{},
+					Level:             0,
+					Envs:              make([]v1.EnvVar, 0),
+					Selector:          metav1.LabelSelector{},
+					ContainerSelector: kc.Spec.ContainerSelector,
 				},
 			}
 		} else {
