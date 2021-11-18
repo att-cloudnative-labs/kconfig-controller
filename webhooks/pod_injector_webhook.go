@@ -38,9 +38,10 @@ const (
 // +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud
 
 type PodConfigInjector struct {
-	Client  client.Client
-	decoder *admission.Decoder
-	Log     logr.Logger
+	Client                   client.Client
+	decoder                  *admission.Decoder
+	Log                      logr.Logger
+	DefaultContainerSelector *v12.LabelSelector
 }
 
 func (r *PodConfigInjector) InjectDecoder(d *admission.Decoder) error {
@@ -82,10 +83,24 @@ func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) a
 	sort.Sort(ByLevel(selecting))
 	// add each to pod
 	for _, kcb := range selecting {
-		if pod.Spec.Containers[0].Env == nil {
-			pod.Spec.Containers[0].Env = make([]v1.EnvVar, 0)
+		for i, container := range pod.Spec.Containers {
+			labelsForContainer := labels.Set{"name": container.Name}
+			labelSelector := kcb.ContainerSelector
+			if labelSelector == nil {
+				labelSelector = r.DefaultContainerSelector
+			}
+			selector, err := v12.LabelSelectorAsSelector(labelSelector)
+			if err != nil {
+				r.Log.Error(err, fmt.Sprintf("error reading kcb containerSelector: %s", err.Error()))
+				continue
+			}
+			if selector.Matches(labelsForContainer) {
+				if pod.Spec.Containers[i].Env == nil {
+					pod.Spec.Containers[i].Env = make([]v1.EnvVar, 0)
+				}
+				pod.Spec.Containers[i].Env = append(pod.Spec.Containers[0].Env, kcb.Envs...)
+			}
 		}
-		pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, kcb.Envs...)
 	}
 	marshaledPod, err := json.Marshal(pod)
 	if err != nil {

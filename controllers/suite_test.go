@@ -16,6 +16,9 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"path/filepath"
 	"testing"
 
@@ -31,6 +34,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
+
+func TestContainerSelector(t *testing.T) {
+	containerName := "mycontainer"
+	myset := labels.Set{}
+	myset["name"] = containerName
+
+	selector := v1.LabelSelector{
+		MatchExpressions: []v1.LabelSelectorRequirement{
+			{
+				Operator: v1.LabelSelectorOpNotIn,
+				Key:      "name",
+				Values: []string{
+					"mycontainer",
+				},
+			},
+		},
+	}
+	sel, err := v1.LabelSelectorAsSelector(&selector)
+	if err != nil {
+		t.Errorf(fmt.Sprintf("error converting labelselector to selector: %s", err.Error()))
+		t.Fail()
+	}
+	fmt.Printf("match result: %+v", sel.Matches(myset))
+	//selector.MatchExpressions[0]
+
+}
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.

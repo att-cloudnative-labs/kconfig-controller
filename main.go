@@ -16,8 +16,11 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/att-cloudnative-labs/kconfig-controller/webhooks"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -48,11 +51,13 @@ func main() {
 	var enableLeaderElection bool
 	var configMapPrefix string
 	var secretPrefix string
+	var defaultContainerSelector string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&configMapPrefix, "configmap-prefix", "kc-", "prefix added to name of configmaps created from kconfigs")
 	flag.StringVar(&secretPrefix, "secret-prefix", "kc-", "prefix added to the name of secrets created from kconfigs")
+	flag.StringVar(&defaultContainerSelector, "default-container-selector", "{}", "default container selector if kconfig doesn't supply")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(func(o *zap.Options) {
@@ -90,12 +95,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	var containerSelector v1.LabelSelector
+	err = json.Unmarshal([]byte(defaultContainerSelector), &containerSelector)
+	if err != nil {
+		setupLog.Error(err, fmt.Sprintf("error parsing default-container-selector: %s", err.Error()))
+		os.Exit(1)
+	}
 	setupLog.Info("setting up pod config injector webhook")
 	hookServer := mgr.GetWebhookServer()
 	hookServer.Register("/mutate-v1-pod", &webhook.Admission{
 		Handler: &webhooks.PodConfigInjector{
-			Client: mgr.GetClient(),
-			Log:    ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
+			Client:                   mgr.GetClient(),
+			Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
+			DefaultContainerSelector: &containerSelector,
 		},
 	})
 
