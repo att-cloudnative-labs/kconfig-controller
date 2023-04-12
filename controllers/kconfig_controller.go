@@ -34,8 +34,6 @@ import (
 	kconfigcontrollerv1beta1 "github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 )
 
-const KeyRemovalPeriodSecs = 10
-
 // KconfigReconciler reconciles a Kconfig object
 type KconfigReconciler struct {
 	client.Client
@@ -83,7 +81,7 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 	cmActions := make([]ExternalAction, 0)
 	secActions := make([]ExternalAction, 0)
 
-	secretsRefs := make([]v1.SecretKeySelector, 0)
+	kConfSecretRefs := make([]v1.SecretKeySelector, 0)
 
 	envConfigs := kc.Spec.EnvConfigs
 	for _, ec := range envConfigs {
@@ -97,7 +95,7 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 				return fmt.Errorf("error processing configmap envConfig: %s", err.Error())
 			}
 		case "secret":
-			if err := r.processSecretEnvConfig(kc, ec, &secActions, &envVars, &updatedEnvConfigs, &secretsRefs); err != nil {
+			if err := r.processSecretEnvConfig(kc, ec, &secActions, &envVars, &updatedEnvConfigs, &kConfSecretRefs); err != nil {
 				return fmt.Errorf("error processing secret envConfig: %s", err.Error())
 			}
 		case "fieldref":
@@ -130,48 +128,53 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 		return fmt.Errorf("error updating kconfig: %s", err.Error())
 	}
 
-	if err := r.garbageCollection(ctx, kc, secretsRefs); err != nil {
+	if err := r.garbageCollection(ctx, kc, kConfSecretRefs); err != nil {
 		return fmt.Errorf("error on calling garbage collection: %s", err.Error())
 	}
 
 	return nil
 }
 
-func (r *KconfigReconciler) garbageCollection(ctx context.Context, kc *kconfigcontrollerv1beta1.Kconfig, secretRefs []v1.SecretKeySelector) error {
+func (r *KconfigReconciler) garbageCollection(ctx context.Context, kc *kconfigcontrollerv1beta1.Kconfig, kConfSecretRefs []v1.SecretKeySelector) error {
 	var sec v1.Secret
 	secName := fmt.Sprintf("%s%s", r.SecretPrefix, kc.Name)
 	nn := types.NamespacedName{Namespace: kc.Namespace, Name: secName}
 
 	if err := r.Get(ctx, nn, &sec); err != nil {
-		if errors.IsNotFound(err) {
-
-			sec = v1.Secret{
-				ObjectMeta: ctrl.ObjectMeta{
-					Namespace: kc.Namespace,
-					Name:      secName,
-				},
-				Data: make(map[string][]byte),
-			}
-		} else {
-			return fmt.Errorf("error getting secret: %s", err.Error())
-		}
+		return fmt.Errorf("error getting secret: %s", err.Error())
 	}
 
-	candidatesForRemoval := make([]string, 0)
+	existingSecretRefs := make(map[string]int)
 
-	for _, selector := range secretRefs {
+	for _, selector := range kConfSecretRefs {
 		if _, ok := sec.Data[selector.Key]; ok {
-			candidatesForRemoval = append(candidatesForRemoval, selector.Key)
+			existingSecretRefs[selector.Key] = 1
 		}
 	}
 
-	//toBeRemovedMap := make(map[string]time.Time)
+	outdatedSecretRefs := make([]string, 0)
 	for annotationKey, annotationValue := range sec.Annotations {
-		if strings.HasPrefix(annotationKey, "pendingkeyremoval/") {
-			uuidStr := annotationKey[len("pendingkeyremoval/"):]
-			fmt.Println(annotationKey + annotationValue + uuidStr)
+		if strings.HasPrefix(annotationKey, PendingKeyRemoval) {
+			annotSecretKey := annotationKey[len(PendingKeyRemoval):]
+
+			parsedTime, err := time.Parse("2006-01-02 15:04:05", annotationValue)
+			if err == nil {
+				if _, foundInExisting := existingSecretRefs[annotSecretKey]; !foundInExisting {
+					if time.Now().Local().After(parsedTime) {
+						outdatedSecretRefs = append(outdatedSecretRefs, annotSecretKey)
+
+						delete(sec.Annotations, annotationKey)
+						delete(sec.Data, annotSecretKey)
+					}
+				}
+
+			}
 		}
 
+	}
+
+	if err := r.Update(ctx, &sec); err != nil {
+		return fmt.Errorf("error updating secret: %s", err.Error())
 	}
 
 	return nil
@@ -225,10 +228,10 @@ func (r *KconfigReconciler) processConfigMapEnvConfig(kc *kconfigcontrollerv1bet
 }
 
 func (r *KconfigReconciler) processSecretEnvConfig(kc *kconfigcontrollerv1beta1.Kconfig, ec kconfigcontrollerv1beta1.EnvConfig,
-	actions *[]ExternalAction, envVars *[]v1.EnvVar, updatedECs *[]kconfigcontrollerv1beta1.EnvConfig, secretRefs *[]v1.SecretKeySelector) error {
+	actions *[]ExternalAction, envVars *[]v1.EnvVar, updatedECs *[]kconfigcontrollerv1beta1.EnvConfig, kConfSecretRefs *[]v1.SecretKeySelector) error {
 
 	if ec.Type == "Secret" && ec.Value == nil && ec.SecretKeyRef != nil {
-		*secretRefs = append(*secretRefs, *ec.SecretKeyRef)
+		*kConfSecretRefs = append(*kConfSecretRefs, *ec.SecretKeyRef)
 	}
 
 	envVar := v1.EnvVar{}
@@ -385,15 +388,15 @@ func (r *KconfigReconciler) executeSecretActions(ctx context.Context, kc *kconfi
 			return fmt.Errorf("error getting secret: %s", err.Error())
 		}
 	}
+
 	for _, action := range actions {
 		sec.Data[action.Key] = []byte(action.Value)
 
 		expire_date := time.Now().Local().Add(
 			time.Second * time.Duration(KeyRemovalPeriodSecs))
 
-		key := "pendingkeyremoval/" + action.Key
+		key := PendingKeyRemoval + action.Key
 		sec.ObjectMeta.Annotations[key] = expire_date.Format("2006-01-02 15:04:05")
-
 	}
 
 	if existing {
