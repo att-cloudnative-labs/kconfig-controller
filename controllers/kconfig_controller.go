@@ -29,9 +29,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
+	"time"
 
 	kconfigcontrollerv1beta1 "github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 )
+
+const KeyRemovalPeriodSecs = 10
 
 // KconfigReconciler reconciles a Kconfig object
 type KconfigReconciler struct {
@@ -80,6 +83,8 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 	cmActions := make([]ExternalAction, 0)
 	secActions := make([]ExternalAction, 0)
 
+	secretsRefs := make([]v1.SecretKeySelector, 0)
+
 	envConfigs := kc.Spec.EnvConfigs
 	for _, ec := range envConfigs {
 		switch strings.ToLower(ec.Type) {
@@ -92,7 +97,7 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 				return fmt.Errorf("error processing configmap envConfig: %s", err.Error())
 			}
 		case "secret":
-			if err := r.processSecretEnvConfig(kc, ec, &secActions, &envVars, &updatedEnvConfigs); err != nil {
+			if err := r.processSecretEnvConfig(kc, ec, &secActions, &envVars, &updatedEnvConfigs, &secretsRefs); err != nil {
 				return fmt.Errorf("error processing secret envConfig: %s", err.Error())
 			}
 		case "fieldref":
@@ -124,6 +129,47 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 	if err := r.Update(ctx, kcCopy); err != nil {
 		return fmt.Errorf("error updating kconfig: %s", err.Error())
 	}
+
+	if err := r.garbageCollection(ctx, kc, secretsRefs); err != nil {
+		return fmt.Errorf("error on calling garbage collection: %s", err.Error())
+	}
+
+	return nil
+}
+
+func (r *KconfigReconciler) garbageCollection(ctx context.Context, kc *kconfigcontrollerv1beta1.Kconfig, secretRefs []v1.SecretKeySelector) error {
+	var sec v1.Secret
+	secName := fmt.Sprintf("%s%s", r.SecretPrefix, kc.Name)
+	nn := types.NamespacedName{Namespace: kc.Namespace, Name: secName}
+
+	if err := r.Get(ctx, nn, &sec); err != nil {
+		if errors.IsNotFound(err) {
+
+			sec = v1.Secret{
+				ObjectMeta: ctrl.ObjectMeta{
+					Namespace: kc.Namespace,
+					Name:      secName,
+				},
+				Data: make(map[string][]byte),
+			}
+		} else {
+			return fmt.Errorf("error getting secret: %s", err.Error())
+		}
+	}
+
+	candidatesForRemoval := make([]string, 0)
+
+	for _, selector := range secretRefs {
+		if _, ok := sec.Data[selector.Key]; ok {
+			candidatesForRemoval = append(candidatesForRemoval, selector.Key)
+		}
+	}
+
+	toBeRemovedMap := make(map[string]time.Time)
+	for _, annotation := range sec.Annotations {
+		
+	}
+
 	return nil
 }
 
@@ -174,7 +220,13 @@ func (r *KconfigReconciler) processConfigMapEnvConfig(kc *kconfigcontrollerv1bet
 	return nil
 }
 
-func (r *KconfigReconciler) processSecretEnvConfig(kc *kconfigcontrollerv1beta1.Kconfig, ec kconfigcontrollerv1beta1.EnvConfig, actions *[]ExternalAction, envVars *[]v1.EnvVar, updatedECs *[]kconfigcontrollerv1beta1.EnvConfig) error {
+func (r *KconfigReconciler) processSecretEnvConfig(kc *kconfigcontrollerv1beta1.Kconfig, ec kconfigcontrollerv1beta1.EnvConfig,
+	actions *[]ExternalAction, envVars *[]v1.EnvVar, updatedECs *[]kconfigcontrollerv1beta1.EnvConfig, secretRefs *[]v1.SecretKeySelector) error {
+
+	if ec.Type == "Secret" && ec.Value == nil && ec.SecretKeyRef != nil {
+		*secretRefs = append(*secretRefs, *ec.SecretKeyRef)
+	}
+
 	envVar := v1.EnvVar{}
 	if ec.Value != nil {
 		refName := fmt.Sprintf("%s%s", r.SecretPrefix, kc.Name)
@@ -331,6 +383,13 @@ func (r *KconfigReconciler) executeSecretActions(ctx context.Context, kc *kconfi
 	}
 	for _, action := range actions {
 		sec.Data[action.Key] = []byte(action.Value)
+
+		expire_date := time.Now().Local().Add(
+			time.Second * time.Duration(KeyRemovalPeriodSecs))
+
+		key := "pendingkeyremoval/" + action.Key
+		sec.ObjectMeta.Annotations[key] = expire_date.Format("2006-01-02 15:04:05")
+
 	}
 
 	if existing {
@@ -382,6 +441,7 @@ func (r *KconfigReconciler) updateKconfigBinding(ctx context.Context, kc *kconfi
 	kcb.Spec.Level = kc.Spec.Level
 	kcb.Spec.Envs = envVars
 	kcb.Spec.Selector = kc.Spec.Selector
+	kcb.Spec.ContainerSelector = kc.Spec.ContainerSelector.DeepCopy()
 
 	if existing {
 		if err := r.Update(ctx, &kcb); err != nil {

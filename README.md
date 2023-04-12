@@ -93,7 +93,7 @@ spec:
   selector:
     matchLabels:
       app: myapp
- containerSelector:
+  containerSelector:
     matchLabels:
       name: myapp
 
