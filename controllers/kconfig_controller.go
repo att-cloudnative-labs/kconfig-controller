@@ -165,9 +165,13 @@ func (r *KconfigReconciler) garbageCollection(ctx context.Context, kc *kconfigco
 		}
 	}
 
-	toBeRemovedMap := make(map[string]time.Time)
-	for _, annotation := range sec.Annotations {
-		
+	//toBeRemovedMap := make(map[string]time.Time)
+	for annotationKey, annotationValue := range sec.Annotations {
+		if strings.HasPrefix(annotationKey, "pendingkeyremoval/") {
+			uuidStr := annotationKey[len("pendingkeyremoval/"):]
+			fmt.Println(annotationKey + annotationValue + uuidStr)
+		}
+
 	}
 
 	return nil
