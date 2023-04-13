@@ -1,0 +1,69 @@
+apiVersion: kconfigcontroller.atteg.com/v1beta1
+kind: Kconfig
+metadata:
+  generation: 7
+  labels:
+    app: myapp
+    velero.io/backup-name: dev-int-20221219180236
+    velero.io/restore-name: dev-int-20221219180236-20221219193705
+  managedFields:
+  - apiVersion: kconfigcontroller.atteg.com/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:labels:
+          .: {}
+          f:app: {}
+          f:velero.io/backup-name: {}
+          f:velero.io/restore-name: {}
+      f:spec:
+        .: {}
+        f:level: {}
+        f:selector:
+          .: {}
+          f:matchLabels:
+            .: {}
+            f:app: {}
+            f:default-config: {}
+    manager: velero-server
+    operation: Update
+    time: "2022-12-13T06:31:55Z"
+  - apiVersion: kconfigcontroller.atteg.com/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:spec:
+        f:containerSelector: {}
+        f:envConfigs: {}
+      f:status: {}
+    manager: manager
+    operation: Update
+    time: "2023-04-05T18:56:35Z"
+  name: myapp-app-default
+  resourceVersion: "971337236"
+  uid: bee60a56-08d5-402b-a021-46e3ead57584
+spec:
+  containerSelector:
+    matchLabels:
+      additionalProperties: ""
+
+  envConfigs:
+  - key: mypropone
+    type: Value
+    value: mypropvalone
+  - key: secondprop
+    type: Value
+    value: allpropvals
+  - key: lastprop
+    type: Value
+    value: more
+  - key: onesecretthough
+    secretKeyRef:
+      key: 0df08c4b-0911-4cd1-bbaf-d88d520f980a
+      name: kc-myapp-app-default
+    type: Secret
+  level: 20
+  selector:
+    matchLabels:
+      app: myapp
+      default-config: app-default
+status: {}

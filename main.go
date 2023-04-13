@@ -21,7 +21,6 @@ import (
 	"fmt"
 	kconfigcontrollerv1beta1 "github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 	"github.com/att-cloudnative-labs/kconfig-controller/controllers"
-	"github.com/att-cloudnative-labs/kconfig-controller/webhooks"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -29,7 +28,6 @@ import (
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -51,6 +49,8 @@ func main() {
 	var configMapPrefix string
 	var secretPrefix string
 	var defaultContainerSelector string
+	var keyRemovalPeriodSecs int
+	flag.IntVar(&keyRemovalPeriodSecs, "key-removal-period-sec", 6*30*24*60*60, "The number of seconds after which secrets will be expired if missing in Kconfig")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
@@ -75,12 +75,13 @@ func main() {
 	}
 
 	if err = (&controllers.KconfigReconciler{
-		Client:          mgr.GetClient(),
-		Log:             ctrl.Log.WithName("controllers").WithName("Kconfig"),
-		Scheme:          mgr.GetScheme(),
-		Recorder:        mgr.GetEventRecorderFor("Kconfig"),
-		ConfigMapPrefix: configMapPrefix,
-		SecretPrefix:    secretPrefix,
+		Client:               mgr.GetClient(),
+		Log:                  ctrl.Log.WithName("controllers").WithName("Kconfig"),
+		Scheme:               mgr.GetScheme(),
+		Recorder:             mgr.GetEventRecorderFor("Kconfig"),
+		ConfigMapPrefix:      configMapPrefix,
+		SecretPrefix:         secretPrefix,
+		KeyRemovalPeriodSecs: keyRemovalPeriodSecs,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Kconfig")
 		os.Exit(1)
@@ -100,15 +101,15 @@ func main() {
 		setupLog.Error(err, fmt.Sprintf("error parsing default-container-selector: %s", err.Error()))
 		os.Exit(1)
 	}
-	setupLog.Info("setting up pod config injector webhook")
-	hookServer := mgr.GetWebhookServer()
-	hookServer.Register("/mutate-v1-pod", &webhook.Admission{
-		Handler: &webhooks.PodConfigInjector{
-			Client:                   mgr.GetClient(),
-			Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
-			DefaultContainerSelector: &containerSelector,
-		},
-	})
+	//setupLog.Info("setting up pod config injector webhook")
+	//hookServer := mgr.GetWebhookServer()
+	//hookServer.Register("/mutate-v1-pod", &webhook.Admission{
+	//	Handler: &webhooks.PodConfigInjector{
+	//		Client:                   mgr.GetClient(),
+	//		Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
+	//		DefaultContainerSelector: &containerSelector,
+	//	},
+	//})
 
 	// +kubebuilder:scaffold:builder
 
