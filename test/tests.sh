@@ -30,7 +30,7 @@ function createKConfig {
 make -C ../ uninstall
 make -C ../ install
 
-# given KConfig object when we add a secret entry and run kconfig-controller with any expiration time then we see only the secret reference, but not the expiration annotation
+# given KConfig object when we add the secret entry and run kconfig-controller with any expiration time then we see only the secret reference, but not the expiration annotation
 
 createKConfig
 kubectl patch kconfigs.kconfigcontroller.atteg.com myapp-app-default --type merge -p \
@@ -48,7 +48,7 @@ SECRET_DATA=$(kubectl get secret kc-myapp-app-default -ojson | jq ".data")
 ANNOTATIONS=$(kubectl get secret kc-myapp-app-default -ojson | jq ".metadata.annotations")
 echo "Secret data is $SECRET_DATA with annotations $ANNOTATIONS"
 
-#given KConfig object when we remove a secret entry and run kconfig-controller with a quite big time then we don't the secret reference, but can see the expiration annotation and the secret data
+#given KConfig object when we remove the secret entry and run kconfig-controller with a quite big time then we don't see the secret reference, but can see the expiration annotation and the secret data
 
 kubectl patch kconfigs.kconfigcontroller.atteg.com myapp-app-default --type merge -p \
   '{"spec": {"envConfigs": []}}'
@@ -63,7 +63,7 @@ SECRET_DATA=$(kubectl get secret kc-myapp-app-default -ojson | jq ".data")
 ANNOTATIONS=$(kubectl get secret kc-myapp-app-default -ojson | jq ".metadata.annotations")
 echo "Secret data is $SECRET_DATA with annotations $ANNOTATIONS"
 
-#given KConfig object when we remove a secret entry and run kconfig-controller with a 1 sec expiration time time then we don't the secret reference and don't see the expiration annotation and the secret data
+#given KConfig object when we remove the secret entry and run kconfig-controller with 1 sec expiration time time then we don't see the secret reference and don't see the expiration annotation and the secret data
 kubectl patch kconfigs.kconfigcontroller.atteg.com myapp-app-default --type merge -p \
   '{"spec": {"envConfigs": [{"key": "secret1", "type": "Secret", "value": "foo1"}]}}'
 
