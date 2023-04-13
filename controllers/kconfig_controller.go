@@ -82,8 +82,6 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 	cmActions := make([]ExternalAction, 0)
 	secActions := make([]ExternalAction, 0)
 
-	kConfSecretRefs := make(map[string]v1.SecretKeySelector)
-
 	envConfigs := kc.Spec.EnvConfigs
 	for _, ec := range envConfigs {
 		switch strings.ToLower(ec.Type) {
@@ -96,7 +94,7 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 				return fmt.Errorf("error processing configmap envConfig: %s", err.Error())
 			}
 		case "secret":
-			if err := r.processSecretEnvConfig(kc, ec, &secActions, &envVars, &updatedEnvConfigs, kConfSecretRefs); err != nil {
+			if err := r.processSecretEnvConfig(kc, ec, &secActions, &envVars, &updatedEnvConfigs); err != nil {
 				return fmt.Errorf("error processing secret envConfig: %s", err.Error())
 			}
 		case "fieldref":
@@ -129,7 +127,7 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 		return fmt.Errorf("error updating kconfig: %s", err.Error())
 	}
 
-	if err := r.garbageSecretCollection(ctx, kcCopy, kConfSecretRefs); err != nil {
+	if err := r.garbageSecretCollection(ctx, kcCopy); err != nil {
 		return fmt.Errorf("error on calling garbage collection: %s", err.Error())
 	}
 
@@ -151,7 +149,15 @@ func (r *KconfigReconciler) extractPendingRemovalSecretUuids(sec *v1.Secret) map
 	return result
 }
 
-func (r *KconfigReconciler) garbageSecretCollection(ctx context.Context, kc *kconfigcontrollerv1beta1.Kconfig, kConfSecretRefs map[string]v1.SecretKeySelector) error {
+func (r *KconfigReconciler) garbageSecretCollection(ctx context.Context, kc *kconfigcontrollerv1beta1.Kconfig) error {
+
+	kConfSecretRefs := make(map[string]v1.SecretKeySelector)
+	for _, ec := range kc.Spec.EnvConfigs {
+		if ec.Type == "Secret" && ec.Value == nil && ec.SecretKeyRef != nil {
+			kConfSecretRefs[ec.SecretKeyRef.Key] = *ec.SecretKeyRef
+		}
+	}
+
 	var sec v1.Secret
 	secName := fmt.Sprintf("%s%s", r.SecretPrefix, kc.Name)
 	nn := types.NamespacedName{Namespace: kc.Namespace, Name: secName}
@@ -253,11 +259,7 @@ func (r *KconfigReconciler) processConfigMapEnvConfig(kc *kconfigcontrollerv1bet
 }
 
 func (r *KconfigReconciler) processSecretEnvConfig(kc *kconfigcontrollerv1beta1.Kconfig, ec kconfigcontrollerv1beta1.EnvConfig,
-	actions *[]ExternalAction, envVars *[]v1.EnvVar, updatedECs *[]kconfigcontrollerv1beta1.EnvConfig, kConfSecretRefs map[string]v1.SecretKeySelector) error {
-
-	if ec.Type == "Secret" && ec.Value == nil && ec.SecretKeyRef != nil {
-		kConfSecretRefs[ec.SecretKeyRef.Key] = *ec.SecretKeyRef
-	}
+	actions *[]ExternalAction, envVars *[]v1.EnvVar, updatedECs *[]kconfigcontrollerv1beta1.EnvConfig) error {
 
 	envVar := v1.EnvVar{}
 	if ec.Value != nil {
@@ -415,6 +417,9 @@ func (r *KconfigReconciler) executeSecretActions(ctx context.Context, kc *kconfi
 	}
 
 	for _, action := range actions {
+		if sec.Data == nil {
+			sec.Data = make(map[string][]byte)
+		}
 		sec.Data[action.Key] = []byte(action.Value)
 	}
 
