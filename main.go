@@ -102,14 +102,14 @@ func main() {
 		os.Exit(1)
 	}
 	setupLog.Info("setting up pod config injector webhook")
-	//hookServer := mgr.GetWebhookServer()
-	//hookServer.Register("/mutate-v1-pod", &webhook.Admission{
-	//	Handler: &webhooks.PodConfigInjector{
-	//		Client:                   mgr.GetClient(),
-	//		Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
-	//		DefaultContainerSelector: &containerSelector,
-	//	},
-	//})
+	hookServer := mgr.GetWebhookServer()
+	hookServer.Register("/mutate-v1-pod", &webhook.Admission{
+		Handler: &webhooks.PodConfigInjector{
+			Client:                   mgr.GetClient(),
+			Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
+			DefaultContainerSelector: &containerSelector,
+		},
+	})
 
 	// +kubebuilder:scaffold:builder
 
