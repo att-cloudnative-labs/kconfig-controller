@@ -21,7 +21,6 @@ import (
 	"fmt"
 	kconfigcontrollerv1beta1 "github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 	"github.com/att-cloudnative-labs/kconfig-controller/controllers"
-	"github.com/att-cloudnative-labs/kconfig-controller/webhooks"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -29,7 +28,6 @@ import (
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -104,14 +102,14 @@ func main() {
 		os.Exit(1)
 	}
 	setupLog.Info("setting up pod config injector webhook")
-	hookServer := mgr.GetWebhookServer()
-	hookServer.Register("/mutate-v1-pod", &webhook.Admission{
-		Handler: &webhooks.PodConfigInjector{
-			Client:                   mgr.GetClient(),
-			Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
-			DefaultContainerSelector: &containerSelector,
-		},
-	})
+	//hookServer := mgr.GetWebhookServer()
+	//hookServer.Register("/mutate-v1-pod", &webhook.Admission{
+	//	Handler: &webhooks.PodConfigInjector{
+	//		Client:                   mgr.GetClient(),
+	//		Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
+	//		DefaultContainerSelector: &containerSelector,
+	//	},
+	//})
 
 	// +kubebuilder:scaffold:builder
 
