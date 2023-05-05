@@ -20,8 +20,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/att-cloudnative-labs/kconfig-controller/webhooks"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -124,15 +127,15 @@ func main() {
 		setupLog.Error(err, fmt.Sprintf("error parsing default-container-selector: %s", err.Error()))
 		os.Exit(1)
 	}
-	//setupLog.Info("setting up pod config injector webhook")
-	//hookServer := mgr.GetWebhookServer()
-	//hookServer.Register("/mutate-v1-pod", &webhook.Admission{
-	//	Handler: &webhooks.PodConfigInjector{
-	//		Client:                   mgr.GetClient(),
-	//		Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
-	//		DefaultContainerSelector: &containerSelector,
-	//	},
-	//})
+	setupLog.Info("setting up pod config injector webhook")
+	hookServer := mgr.GetWebhookServer()
+	hookServer.Register("/mutate-v1-pod", &webhook.Admission{
+		Handler: &webhooks.PodConfigInjector{
+			Client:                   mgr.GetClient(),
+			Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
+			DefaultContainerSelector: &containerSelector,
+		},
+	})
 
 	//+kubebuilder:scaffold:builder
 
