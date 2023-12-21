@@ -1,7 +1,14 @@
-# permissions to do edit kconfigbindings.
+# permissions for end users to edit kconfigbindings.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: kconfigbinding-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: kconfig-controller
+    app.kubernetes.io/part-of: kconfig-controller
+    app.kubernetes.io/managed-by: kustomize
   name: kconfigbinding-editor-role
 rules:
 - apiGroups:
@@ -22,5 +29,3 @@ rules:
   - kconfigbindings/status
   verbs:
   - get
-  - patch
-  - update

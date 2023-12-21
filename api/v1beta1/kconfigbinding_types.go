@@ -1,4 +1,5 @@
 /*
+Copyright 2023.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +26,9 @@ import (
 
 // KconfigBindingSpec defines the desired state of KconfigBinding
 type KconfigBindingSpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
 	Level int         `json:"level"`
 	Envs  []v1.EnvVar `json:"envs"`
 	// +kubebuilder:validation:Optional
@@ -34,11 +38,13 @@ type KconfigBindingSpec struct {
 
 // KconfigBindingStatus defines the observed state of KconfigBinding
 type KconfigBindingStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 	ObservedGeneration int64 `json:"observedGeneration"`
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
 // KconfigBinding is the Schema for the kconfigbindings API
 type KconfigBinding struct {
@@ -49,7 +55,7 @@ type KconfigBinding struct {
 	Status KconfigBindingStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // KconfigBindingList contains a list of KconfigBinding
 type KconfigBindingList struct {

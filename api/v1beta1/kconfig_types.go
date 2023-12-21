@@ -1,4 +1,5 @@
 /*
+Copyright 2023.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,11 +26,20 @@ import (
 
 // KconfigSpec defines the desired state of Kconfig
 type KconfigSpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
 	Level int `json:"level"`
 	// +kubebuilder:validation:Optional
 	Selector          metav1.LabelSelector  `json:"selector"`
 	EnvConfigs        []EnvConfig           `json:"envConfigs"`
 	ContainerSelector *metav1.LabelSelector `json:"containerSelector"`
+}
+
+// KconfigStatus defines the observed state of Kconfig
+type KconfigStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // EnvConfig represents a single environment variable configuration
@@ -50,13 +60,8 @@ type EnvConfig struct {
 	ResourceFieldRef *v1.ResourceFieldSelector `json:"resourceFieldRef,omitempty" protobuf:"bytes,4,opt,name=resourceFieldRef"`
 }
 
-// KconfigStatus defines the observed state of Kconfig
-type KconfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
-
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
 
 // Kconfig is the Schema for the kconfigs API
 type Kconfig struct {
@@ -67,7 +72,7 @@ type Kconfig struct {
 	Status KconfigStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:object:root=true
+//+kubebuilder:object:root=true
 
 // KconfigList contains a list of Kconfig
 type KconfigList struct {

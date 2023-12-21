@@ -1,124 +1,94 @@
-# Kconfig
+# kconfig-controller
+// TODO(user): Add simple overview of use/purpose
 
----
+## Description
+// TODO(user): An in-depth paragraph about your project and overview of use
 
-<p align="center">
-  <a href="https://goreportcard.com/report/github.com/att-cloudnative-labs/kconfig-controller" alt="Go Report Card">
-    <img src="https://goreportcard.com/badge/github.com/att-cloudnative-labs/kconfig-controller">
-  </a>	
-</p>
-<p align="center">
-    <a href="https://github.com/att-cloudnative-labs/kconfig-controller/graphs/contributors" alt="Contributors">
-		<img src="https://img.shields.io/github/contributors/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/commits/master" alt="Commits">
-		<img src="https://img.shields.io/github/commit-activity/m/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/pulls" alt="Open pull requests">
-		<img src="https://img.shields.io/github/issues-pr-raw/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/pulls" alt="Closed pull requests">
-    	<img src="https://img.shields.io/github/issues-pr-closed-raw/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/issues" alt="Issues">
-		<img src="https://img.shields.io/github/issues-raw/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	</p>
-<p align="center">
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/stargazers" alt="Stars">
-		<img src="https://img.shields.io/github/stars/att-cloudnative-labs/kconfig-controller.svg?style=social">
-	</a>	
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/watchers" alt="Watchers">
-		<img src="https://img.shields.io/github/watchers/att-cloudnative-labs/kconfig-controller.svg?style=social">
-	</a>	
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/network/members" alt="Forks">
-		<img src="https://img.shields.io/github/forks/att-cloudnative-labs/kconfig-controller.svg?style=social">
-	</a>	
-</p>
+## Getting Started
+You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
+**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
-----
+### Running on the cluster
+1. Install Instances of Custom Resources:
 
-Kconfig is a Kubernetes custom-controller, admission-webhook, and custom resource definition for externalizing configuration of Kubernetes Pods. Kconfig allows environment variables to be defined in a single resource that selects the target pods based on labels, and inserts the specified environment variables into the target pods.
-
-Multiple Kconfig resources can select the same target labels and the target pods will have the aggregation of each of those Kconfigs. In addition, Kconfigs have a level field which determines the order, in relation to other Kconfigs that select common pods, in which environment variables from multiple Kconfigs are defined in the container environment.
-
-Aside from defining simple key/value pairs, Kconfigs can also define and reference environment variables to be stored in configmaps and/or secrets.
-
-For a target to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/inject=true```.
-
-Add the annotation, ```kconfigcontroller.atteg.com/refresh-template=true``` to have updates to a kconfig to trigger a rolling update for deployments, statefulsets of the selected pods.
-
-Kconfig-controller also has a secondary custom resource, KconfigBinding, that is used by the controllers and should not be created/manipulated directly by users. This resources serve as a target for Kconfigs to update their changes whereafter, the admission-controller can import the contained environment variables directly into pods. Note that there is a one-to-one mapping for each kconfig and kconfigbinding.
-
-Build requires Kustomize (https://github.com/kubernetes-sigs/kustomize) locally and cert-manager (https://github.com/jetstack/cert-manager) installed in the kubernetes cluser for the admission-controller's TLS certificates.
-
-----
-
-## Sample Kconfig
-
-```yaml
-apiVersion: kconfigcontroller.atteg.com/v1alpha1
-kind: Kconfig
-metadata:
-  name: mykconfig
-  namespace: mynamespace
-spec:
-  envConfigs:
-  - type: Value
-    key: LITERALVALUEVAR
-    value: firstvalue
-  - type: Secret
-    key: PLEASECREATETHIS
-    value: shhhhh
-  - type: Secret
-    key: MYSECRETVAR
-    secretKeyRef:
-      key: mysecretvar
-      name: samplesecret
-      optional: true
-  - type: ConfigMap
-    key: MYCONFIGMAPVAR
-    secretKeyRef:
-      key: myconfigmapvar
-      name: sameplecm
-      optional: true
-  - type: FieldRef
-    key: MYPODIP
-    value: status.podIP
-  - type: ResourceFieldRef
-    key: MYRESOURCE
-    resourceFieldRef:
-      resource: limits.memory
-  level: 2
-  selector:
-    matchLabels:
-      app: myapp
- containerSelector:
-    matchLabels:
-      name: myapp
-
+```sh
+kubectl apply -f config/samples/
 ```
 
-The first envConfig is a 'Value' type. An empty type field implies a 'Value' type envConfig. This definition would apply a simple key and value field to the target pod's container environment variables. The second envConfig is a 'Secret' type. The Kconfig is automatically updated with the secretKeyRef to the secret and with the value field removed. The same is true with a 'ConfigMap' type. Notice the final two envConfigs that show how the envConfig appears after a Kconfig is created/updated with a ConfigMap or Secret type envConfig that contains a value. Whenever a get Kconfig is performed, you will never see a value field, as the action is performed immediately on update and the field is automatically removed. ContainerSelector determines which container the configs will apply to. Containers don't have labels so the selector selects on name. Name should currently be the only key used in the selector. In absence of a ContainerSelector, the default containerSelector is used, which selects everything (all containers). this can be overridden with an argument to the controller. Example ```--default-container-selector='{"matchExpressions":[{"key":"name","operator":"NotIn","values":["istio-proxy"]}]}```
+2. Build and push your image to the location specified by `IMG`:
 
-## Build and Push
-
-```bash
-make docker-build IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
-make docker-push IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
+```sh
+make docker-build docker-push IMG=<some-registry>/kconfig-controller:tag
 ```
 
-## Installation
+3. Deploy the controller to the cluster with the image specified by `IMG`:
 
-```bash
-make deploy IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
+```sh
+make deploy IMG=<some-registry>/kconfig-controller:tag
 ```
 
-## Roadmap
+### Uninstall CRDs
+To delete the CRDs from the cluster:
 
-* Validate that all existing configmap/secret references in a Kconfig exists and if not, removed them from the Kconfig
-* Support for creating files and mount locations for files through Kconfigs
+```sh
+make uninstall
+```
 
----
+### Undeploy controller
+UnDeploy the controller from the cluster:
 
-*Developed using the Kubebuilder Framework, https://github.com/kubernetes-sigs/kubebuilder
+```sh
+make undeploy
+```
+
+## Contributing
+// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+### How it works
+This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
+
+It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
+which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
+
+### Test It Out
+1. Install the CRDs into the cluster:
+
+```sh
+make install
+```
+
+2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+
+```sh
+make run
+```
+
+**NOTE:** You can also run this in one step by running: `make install run`
+
+### Modifying the API definitions
+If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
+
+```sh
+make manifests
+```
+
+**NOTE:** Run `make --help` for more information on all potential `make` targets
+
+More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
+## License
+
+Copyright 2023.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
