@@ -19,20 +19,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+
 	"github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sort"
-	"strings"
 )
 
 const (
-	InjectConfigAnnotation = "kconfigcontroller.atteg.com/inject"
+	InjectConfigAnnotation       = "kconfigcontroller.atteg.com/inject"
+	ExclusiveEnvConfigAnnotation = "kconfigcontroller.atteg.com/exclusive-env"
 )
 
 // +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud
@@ -65,6 +67,11 @@ func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) a
 	kcbs := v1beta1.KconfigBindingList{}
 	if err := r.Client.List(ctx, &kcbs, client.InNamespace(req.Namespace)); err != nil {
 		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("could not get kconfigbininglist: %s", err.Error()))
+	}
+
+	// cleanup old pod env configs
+	if pod.Annotations == nil || strings.ToLower(pod.Annotations[ExclusiveEnvConfigAnnotation]) == "true" {
+		pod.Spec.Containers[0].Env = []v1.EnvVar{}
 	}
 
 	selecting := make([]v1beta1.KconfigBindingSpec, 0)
