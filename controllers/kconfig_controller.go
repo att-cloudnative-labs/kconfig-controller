@@ -379,6 +379,8 @@ func (r *KconfigReconciler) updateKconfigBinding(ctx context.Context, kc *kconfi
 		}
 	}
 
+	kcb.Annotations = kc.Annotations
+	kcb.Labels = kc.Labels
 	kcb.Spec.Level = kc.Spec.Level
 	kcb.Spec.Envs = envVars
 	kcb.Spec.Selector = kc.Spec.Selector
