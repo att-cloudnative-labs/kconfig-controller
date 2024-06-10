@@ -19,18 +19,17 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/att-cloudnative-labs/kconfig-controller/webhooks"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
 	kconfigcontrollerv1beta1 "github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 	"github.com/att-cloudnative-labs/kconfig-controller/controllers"
+	"github.com/att-cloudnative-labs/kconfig-controller/webhooks"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	// +kubebuilder:scaffold:imports
 )
 

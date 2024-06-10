@@ -53,7 +53,11 @@ func (r *KconfigBindingReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if kcb.Status.ObservedGeneration != kcb.Generation {
+	disableTemplateRefresh := "false"
+	if val, ok := kcb.Annotations[KconfigDisableTemplateRefresh]; ok {
+		disableTemplateRefresh = val
+	}
+	if kcb.Status.ObservedGeneration != kcb.Generation && disableTemplateRefresh != "true" {
 		err := r.processKconfigBinding(ctx, kcb)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("error processing kconfigBinding: %s", err.Error())

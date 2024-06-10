@@ -12,4 +12,6 @@ const (
 
 	AllowTemplateUpdatesAnnotation = "kconfigcontroller.atteg.com/refresh-template"
 	GenerationAnnotationPrefix     = "kconfigcontroller.atteg.com/"
+
+	KconfigDisableTemplateRefresh = "kconfigcontroller.atteg.com/disable-template-refresh"
 )
