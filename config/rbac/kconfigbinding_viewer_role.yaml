@@ -1,7 +1,10 @@
-# permissions to do viewer kconfigbindings.
+# permissions for end users to view kconfigbindings.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  labels:
+    app.kubernetes.io/name: kconfig-controller
+    app.kubernetes.io/managed-by: kustomize
   name: kconfigbinding-viewer-role
 rules:
 - apiGroups:

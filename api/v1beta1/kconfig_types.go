@@ -1,4 +1,5 @@
 /*
+Copyright 2025.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +24,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// KconfigSpec defines the desired state of Kconfig
+// KconfigSpec defines the desired state of Kconfig.
 type KconfigSpec struct {
 	Level int `json:"level"`
 	// +kubebuilder:validation:Optional
@@ -50,15 +51,16 @@ type EnvConfig struct {
 	ResourceFieldRef *v1.ResourceFieldSelector `json:"resourceFieldRef,omitempty" protobuf:"bytes,4,opt,name=resourceFieldRef"`
 }
 
-// KconfigStatus defines the observed state of Kconfig
+// KconfigStatus defines the observed state of Kconfig.
 type KconfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
-// Kconfig is the Schema for the kconfigs API
+// Kconfig is the Schema for the kconfigs API.
 type Kconfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -69,7 +71,7 @@ type Kconfig struct {
 
 // +kubebuilder:object:root=true
 
-// KconfigList contains a list of Kconfig
+// KconfigList contains a list of Kconfig.
 type KconfigList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

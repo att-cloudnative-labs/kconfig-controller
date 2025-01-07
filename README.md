@@ -1,124 +1,114 @@
-# Kconfig
+# kconfig-controller
+// TODO(user): Add simple overview of use/purpose
 
----
+## Description
+// TODO(user): An in-depth paragraph about your project and overview of use
 
-<p align="center">
-  <a href="https://goreportcard.com/report/github.com/att-cloudnative-labs/kconfig-controller" alt="Go Report Card">
-    <img src="https://goreportcard.com/badge/github.com/att-cloudnative-labs/kconfig-controller">
-  </a>	
-</p>
-<p align="center">
-    <a href="https://github.com/att-cloudnative-labs/kconfig-controller/graphs/contributors" alt="Contributors">
-		<img src="https://img.shields.io/github/contributors/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/commits/master" alt="Commits">
-		<img src="https://img.shields.io/github/commit-activity/m/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/pulls" alt="Open pull requests">
-		<img src="https://img.shields.io/github/issues-pr-raw/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/pulls" alt="Closed pull requests">
-    	<img src="https://img.shields.io/github/issues-pr-closed-raw/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/issues" alt="Issues">
-		<img src="https://img.shields.io/github/issues-raw/att-cloudnative-labs/kconfig-controller.svg">
-	</a>
-	</p>
-<p align="center">
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/stargazers" alt="Stars">
-		<img src="https://img.shields.io/github/stars/att-cloudnative-labs/kconfig-controller.svg?style=social">
-	</a>	
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/watchers" alt="Watchers">
-		<img src="https://img.shields.io/github/watchers/att-cloudnative-labs/kconfig-controller.svg?style=social">
-	</a>	
-	<a href="https://github.com/att-cloudnative-labs/kconfig-controller/network/members" alt="Forks">
-		<img src="https://img.shields.io/github/forks/att-cloudnative-labs/kconfig-controller.svg?style=social">
-	</a>	
-</p>
+## Getting Started
 
-----
+### Prerequisites
+- go version v1.22.0+
+- docker version 17.03+.
+- kubectl version v1.11.3+.
+- Access to a Kubernetes v1.11.3+ cluster.
 
-Kconfig is a Kubernetes custom-controller, admission-webhook, and custom resource definition for externalizing configuration of Kubernetes Pods. Kconfig allows environment variables to be defined in a single resource that selects the target pods based on labels, and inserts the specified environment variables into the target pods.
+### To Deploy on the cluster
+**Build and push your image to the location specified by `IMG`:**
 
-Multiple Kconfig resources can select the same target labels and the target pods will have the aggregation of each of those Kconfigs. In addition, Kconfigs have a level field which determines the order, in relation to other Kconfigs that select common pods, in which environment variables from multiple Kconfigs are defined in the container environment.
-
-Aside from defining simple key/value pairs, Kconfigs can also define and reference environment variables to be stored in configmaps and/or secrets.
-
-For a target to have its environment variables controlled by Kconfigs, it needs the annotation ```kconfigcontroller.atteg.com/inject=true```.
-
-Add the annotation, ```kconfigcontroller.atteg.com/refresh-template=true``` to have updates to a kconfig to trigger a rolling update for deployments, statefulsets of the selected pods.
-
-Kconfig-controller also has a secondary custom resource, KconfigBinding, that is used by the controllers and should not be created/manipulated directly by users. This resources serve as a target for Kconfigs to update their changes whereafter, the admission-controller can import the contained environment variables directly into pods. Note that there is a one-to-one mapping for each kconfig and kconfigbinding.
-
-Build requires Kustomize (https://github.com/kubernetes-sigs/kustomize) locally and cert-manager (https://github.com/jetstack/cert-manager) installed in the kubernetes cluser for the admission-controller's TLS certificates.
-
-----
-
-## Sample Kconfig
-
-```yaml
-apiVersion: kconfigcontroller.atteg.com/v1alpha1
-kind: Kconfig
-metadata:
-  name: mykconfig
-  namespace: mynamespace
-spec:
-  envConfigs:
-  - type: Value
-    key: LITERALVALUEVAR
-    value: firstvalue
-  - type: Secret
-    key: PLEASECREATETHIS
-    value: shhhhh
-  - type: Secret
-    key: MYSECRETVAR
-    secretKeyRef:
-      key: mysecretvar
-      name: samplesecret
-      optional: true
-  - type: ConfigMap
-    key: MYCONFIGMAPVAR
-    secretKeyRef:
-      key: myconfigmapvar
-      name: sameplecm
-      optional: true
-  - type: FieldRef
-    key: MYPODIP
-    value: status.podIP
-  - type: ResourceFieldRef
-    key: MYRESOURCE
-    resourceFieldRef:
-      resource: limits.memory
-  level: 2
-  selector:
-    matchLabels:
-      app: myapp
- containerSelector:
-    matchLabels:
-      name: myapp
-
+```sh
+make docker-build docker-push IMG=<some-registry>/kconfig-controller:tag
 ```
 
-The first envConfig is a 'Value' type. An empty type field implies a 'Value' type envConfig. This definition would apply a simple key and value field to the target pod's container environment variables. The second envConfig is a 'Secret' type. The Kconfig is automatically updated with the secretKeyRef to the secret and with the value field removed. The same is true with a 'ConfigMap' type. Notice the final two envConfigs that show how the envConfig appears after a Kconfig is created/updated with a ConfigMap or Secret type envConfig that contains a value. Whenever a get Kconfig is performed, you will never see a value field, as the action is performed immediately on update and the field is automatically removed. ContainerSelector determines which container the configs will apply to. Containers don't have labels so the selector selects on name. Name should currently be the only key used in the selector. In absence of a ContainerSelector, the default containerSelector is used, which selects everything (all containers). this can be overridden with an argument to the controller. Example ```--default-container-selector='{"matchExpressions":[{"key":"name","operator":"NotIn","values":["istio-proxy"]}]}```
+**NOTE:** This image ought to be published in the personal registry you specified.
+And it is required to have access to pull the image from the working environment.
+Make sure you have the proper permission to the registry if the above commands don’t work.
 
-## Build and Push
+**Install the CRDs into the cluster:**
 
-```bash
-make docker-build IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
-make docker-push IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
+```sh
+make install
 ```
 
-## Installation
+**Deploy the Manager to the cluster with the image specified by `IMG`:**
 
-```bash
-make deploy IMG=your-registry.com/kconfig-controller-system/kconfig-controller:v1beta1
+```sh
+make deploy IMG=<some-registry>/kconfig-controller:tag
 ```
 
-## Roadmap
+> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
+privileges or be logged in as admin.
 
-* Validate that all existing configmap/secret references in a Kconfig exists and if not, removed them from the Kconfig
-* Support for creating files and mount locations for files through Kconfigs
+**Create instances of your solution**
+You can apply the samples (examples) from the config/sample:
 
----
+```sh
+kubectl apply -k config/samples/
+```
 
-*Developed using the Kubebuilder Framework, https://github.com/kubernetes-sigs/kubebuilder
+>**NOTE**: Ensure that the samples has default values to test it out.
+
+### To Uninstall
+**Delete the instances (CRs) from the cluster:**
+
+```sh
+kubectl delete -k config/samples/
+```
+
+**Delete the APIs(CRDs) from the cluster:**
+
+```sh
+make uninstall
+```
+
+**UnDeploy the controller from the cluster:**
+
+```sh
+make undeploy
+```
+
+## Project Distribution
+
+Following are the steps to build the installer and distribute this project to users.
+
+1. Build the installer for the image built and published in the registry:
+
+```sh
+make build-installer IMG=<some-registry>/kconfig-controller:tag
+```
+
+NOTE: The makefile target mentioned above generates an 'install.yaml'
+file in the dist directory. This file contains all the resources built
+with Kustomize, which are necessary to install this project without
+its dependencies.
+
+2. Using the installer
+
+Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
+
+```sh
+kubectl apply -f https://raw.githubusercontent.com/<org>/kconfig-controller/<tag or branch>/dist/install.yaml
+```
+
+## Contributing
+// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+**NOTE:** Run `make help` for more information on all potential `make` targets
+
+More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+
+## License
+
+Copyright 2025.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
