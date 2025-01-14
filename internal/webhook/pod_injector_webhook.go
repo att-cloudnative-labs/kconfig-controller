@@ -37,7 +37,7 @@ const (
 	ExclusiveEnvConfigAnnotation = "kconfigcontroller.atteg.com/exclusive-env"
 )
 
-// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud
+// +kubebuilder:webhook:path=/mutate-v1-pod,admissionReviewVersions=[v1],sideEffects=None,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud
 
 type PodConfigInjector struct {
 	Client                   client.Client

@@ -17,12 +17,15 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
 	webhook2 "github.com/att-cloudnative-labs/kconfig-controller/internal/webhook"
 	"os"
+	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -67,6 +70,8 @@ func main() {
 	var configMapPrefix string
 	var secretPrefix string
 	var defaultContainerSelector string
+	var webhookPort int
+	var webhookCertPath, webhookCertName, webhookCertKey string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -81,6 +86,10 @@ func main() {
 	flag.StringVar(&configMapPrefix, "configmap-prefix", "kc-", "prefix added to name of configmaps created from kconfigs")
 	flag.StringVar(&secretPrefix, "secret-prefix", "kc-", "prefix added to the name of secrets created from kconfigs")
 	flag.StringVar(&defaultContainerSelector, "default-container-selector", "{}", "default container selector if kconfig doesn't supply")
+	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
+	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
+	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
+	flag.IntVar(&webhookPort, "webhook-port", 9443, "The port on which the webhook server listens.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -103,6 +112,30 @@ func main() {
 	if !enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
+	// Create watchers for metrics and webhooks certificates
+	var webhookCertWatcher *certwatcher.CertWatcher
+
+	// Initial webhook TLS options
+	webhookTLSOpts := tlsOpts
+
+	if len(webhookCertPath) > 0 {
+		setupLog.Info("Initializing webhook certificate watcher using provided certificates",
+			"webhook-cert-path", webhookCertPath, "webhook-cert-name", webhookCertName, "webhook-cert-key", webhookCertKey)
+
+		var err error
+		webhookCertWatcher, err = certwatcher.New(
+			filepath.Join(webhookCertPath, webhookCertName),
+			filepath.Join(webhookCertPath, webhookCertKey),
+		)
+		if err != nil {
+			setupLog.Error(err, "Failed to initialize webhook certificate watcher")
+			os.Exit(1)
+		}
+
+		webhookTLSOpts = append(webhookTLSOpts, func(config *tls.Config) {
+			config.GetCertificate = webhookCertWatcher.GetCertificate
+		})
+	}
 
 	var containerSelector v1.LabelSelector
 	err := json.Unmarshal([]byte(defaultContainerSelector), &containerSelector)
@@ -113,7 +146,7 @@ func main() {
 	setupLog.Info("setting up pod config injector webhook")
 
 	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: tlsOpts,
+		TLSOpts: webhookTLSOpts, Port: webhookPort,
 	})
 	cfg := ctrl.GetConfigOrDie()
 	client, err := client.New(cfg, client.Options{})
@@ -129,6 +162,11 @@ func main() {
 			DefaultContainerSelector: &containerSelector,
 		},
 	})
+
+	if err := webhookServer.Start(context.Background()); err != nil {
+		setupLog.Error(err, "error starting webhook server")
+		os.Exit(1)
+	}
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
@@ -210,4 +248,5 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+
 }

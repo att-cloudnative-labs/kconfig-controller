@@ -91,7 +91,6 @@ func (r *KconfigReconciler) processKconfig(ctx context.Context, kc *kconfigcontr
 	envVars := make([]v1.EnvVar, 0)
 	cmActions := make([]ExternalAction, 0)
 	secActions := make([]ExternalAction, 0)
-
 	envConfigs := kc.Spec.EnvConfigs
 	for _, ec := range envConfigs {
 		switch strings.ToLower(ec.Type) {
