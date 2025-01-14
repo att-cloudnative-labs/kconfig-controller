@@ -86,7 +86,7 @@ func main() {
 	flag.StringVar(&configMapPrefix, "configmap-prefix", "kc-", "prefix added to name of configmaps created from kconfigs")
 	flag.StringVar(&secretPrefix, "secret-prefix", "kc-", "prefix added to the name of secrets created from kconfigs")
 	flag.StringVar(&defaultContainerSelector, "default-container-selector", "{}", "default container selector if kconfig doesn't supply")
-	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
+	flag.StringVar(&webhookCertPath, "webhook-cert-path", "/tmp/k8s-webhook-server/serving-certs", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "The port on which the webhook server listens.")
