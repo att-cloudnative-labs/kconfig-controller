@@ -17,56 +17,63 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sort"
 	"strings"
 
 	"github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
-	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+var podConfigInjectorLog = logf.Log.WithName("pod-config-injector")
+
+func SetupPodConfigInjectorWithManager(mgr ctrl.Manager, sel *v12.LabelSelector) error {
+	return ctrl.NewWebhookManagedBy(mgr).For(&v1.Pod{}).
+		WithDefaulter(
+			&PodConfigInjector{
+				Client:                   mgr.GetClient(),
+				DefaultContainerSelector: sel,
+			},
+		).
+		Complete()
+}
+
+// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud,admissionReviewVersions=v1
+
+type PodConfigInjector struct {
+	Client                   client.Client
+	DefaultContainerSelector *v12.LabelSelector
+}
 
 const (
 	InjectConfigAnnotation       = "kconfigcontroller.atteg.com/inject"
 	ExclusiveEnvConfigAnnotation = "kconfigcontroller.atteg.com/exclusive-env"
 )
 
-// +kubebuilder:webhook:path=/mutate-v1-pod,admissionReviewVersions=[v1],sideEffects=None,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=config-injector.kconfigcontroller.aeg.cloud
+var _ webhook.CustomDefaulter = &PodConfigInjector{}
 
-type PodConfigInjector struct {
-	Client                   client.Client
-	decoder                  admission.Decoder
-	Log                      logr.Logger
-	DefaultContainerSelector *v12.LabelSelector
-}
-
-func (r *PodConfigInjector) InjectDecoder(d *admission.Decoder) error {
-	r.decoder = *d
-	return nil
-}
-
-func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) admission.Response {
-	pod := &v1.Pod{}
-
-	err := r.decoder.Decode(req, pod)
-	if err != nil {
-		return admission.Errored(http.StatusBadRequest, err)
+func (r *PodConfigInjector) Default(ctx context.Context, obj runtime.Object) error {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		return fmt.Errorf("expected an Pod object but got %T", obj)
 	}
 
 	// only inject into pods with proper annotation
 	if pod.Annotations == nil || strings.ToLower(pod.Annotations[InjectConfigAnnotation]) != "true" {
-		return admission.Allowed("kconfig inject not indicated")
+		podConfigInjectorLog.Info(fmt.Sprintf("skipping %s - not annotated", pod.Name))
+		return nil
 	}
 	// get bindings that select this rs
 	kcbs := v1beta1.KconfigBindingList{}
-	if err := r.Client.List(ctx, &kcbs, client.InNamespace(req.Namespace)); err != nil {
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("could not get kconfigbininglist: %s", err.Error()))
+	if err := r.Client.List(ctx, &kcbs, client.InNamespace(pod.Namespace)); err != nil {
+		return fmt.Errorf("could not get kconfigbininglist: %s", err.Error())
 	}
 
 	// cleanup old pod env configs
@@ -78,7 +85,7 @@ func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) a
 	for _, kcb := range kcbs.Items {
 		ls, err := v12.LabelSelectorAsSelector(&kcb.Spec.Selector)
 		if err != nil {
-			r.Log.Error(err, fmt.Sprintf("couldn't get selector of kcb: %s", err.Error()))
+			podConfigInjectorLog.Error(err, fmt.Sprintf("couldn't get selector of kcb: %s", err.Error()))
 			continue
 		}
 
@@ -98,7 +105,7 @@ func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) a
 			}
 			selector, err := v12.LabelSelectorAsSelector(labelSelector)
 			if err != nil {
-				r.Log.Error(err, fmt.Sprintf("error reading kcb containerSelector: %s", err.Error()))
+				podConfigInjectorLog.Error(err, fmt.Sprintf("error reading kcb containerSelector: %s", err.Error()))
 				continue
 			}
 			if selector.Matches(labelsForContainer) {
@@ -109,11 +116,7 @@ func (r *PodConfigInjector) Handle(ctx context.Context, req admission.Request) a
 			}
 		}
 	}
-	marshaledPod, err := json.Marshal(pod)
-	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("could not marshal pod json: %s", err.Error()))
-	}
-	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
+	return nil
 }
 
 // ByLevel sort function for sorting array of KconfigBindingSpecs by their level

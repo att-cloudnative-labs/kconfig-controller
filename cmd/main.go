@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"flag"
@@ -26,8 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -146,27 +143,10 @@ func main() {
 	setupLog.Info("setting up pod config injector webhook")
 
 	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: webhookTLSOpts, Port: webhookPort,
-	})
-	cfg := ctrl.GetConfigOrDie()
-	client, err := client.New(cfg, client.Options{})
-	if err != nil {
-		setupLog.Error(err, "error creating client")
-		os.Exit(1)
-	}
-
-	webhookServer.Register("/mutate-v1-pod", &webhook.Admission{
-		Handler: &webhook2.PodConfigInjector{
-			Client:                   client,
-			Log:                      ctrl.Log.WithName("webhooks").WithName("pod-config-injector"),
-			DefaultContainerSelector: &containerSelector,
-		},
+		TLSOpts: webhookTLSOpts,
+		Port:    webhookPort,
 	})
 
-	if err := webhookServer.Start(context.Background()); err != nil {
-		setupLog.Error(err, "error starting webhook server")
-		os.Exit(1)
-	}
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
@@ -230,6 +210,11 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "KconfigBinding")
+		os.Exit(1)
+	}
+
+	if err = webhook2.SetupPodConfigInjectorWithManager(mgr, &containerSelector); err != nil {
+		setupLog.Error(err, "unable to setup pod config injector", "webhook", "Pod")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

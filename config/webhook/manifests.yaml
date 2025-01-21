@@ -5,7 +5,7 @@ metadata:
   name: mutating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
-  - '[v1]'
+  - v1
   clientConfig:
     service:
       name: webhook-service
