@@ -24,13 +24,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"strings"
-
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
+	"time"
 
 	kconfigcontrollerv1beta1 "github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 )
@@ -189,7 +189,8 @@ func (r *KconfigReconciler) processSecretEnvConfig(kc *kconfigcontrollerv1beta1.
 	envVar := v1.EnvVar{}
 	if ec.Value != nil {
 		refName := fmt.Sprintf("%s%s", r.SecretPrefix, kc.Name)
-		refKey := uuid.New().String()
+		timestamp := time.Now().Format("20060102")
+		refKey := fmt.Sprintf("%s_%s", ec.Key, timestamp)
 		secretKeyRef := &v1.SecretKeySelector{
 			LocalObjectReference: v1.LocalObjectReference{
 				Name: refName,
