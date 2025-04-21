@@ -1,4 +1,5 @@
 /*
+Copyright 2025.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,7 +24,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// KconfigBindingSpec defines the desired state of KconfigBinding
+// KconfigBindingSpec defines the desired state of KconfigBinding.
 type KconfigBindingSpec struct {
 	Level int         `json:"level"`
 	Envs  []v1.EnvVar `json:"envs"`
@@ -32,7 +33,7 @@ type KconfigBindingSpec struct {
 	ContainerSelector *metav1.LabelSelector `json:"containerSelector"`
 }
 
-// KconfigBindingStatus defines the observed state of KconfigBinding
+// KconfigBindingStatus defines the observed state of KconfigBinding.
 type KconfigBindingStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration"`
 }
@@ -40,7 +41,7 @@ type KconfigBindingStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// KconfigBinding is the Schema for the kconfigbindings API
+// KconfigBinding is the Schema for the kconfigbindings API.
 type KconfigBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -51,7 +52,7 @@ type KconfigBinding struct {
 
 // +kubebuilder:object:root=true
 
-// KconfigBindingList contains a list of KconfigBinding
+// KconfigBindingList contains a list of KconfigBinding.
 type KconfigBindingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
