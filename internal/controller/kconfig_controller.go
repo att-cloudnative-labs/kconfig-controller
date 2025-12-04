@@ -19,6 +19,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	v1 "k8s.io/api/core/v1"
@@ -29,8 +33,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"time"
 
 	kconfigcontrollerv1beta1 "github.com/att-cloudnative-labs/kconfig-controller/api/v1beta1"
 )
@@ -189,7 +191,7 @@ func (r *KconfigReconciler) processSecretEnvConfig(kc *kconfigcontrollerv1beta1.
 	envVar := v1.EnvVar{}
 	if ec.Value != nil {
 		refName := fmt.Sprintf("%s%s", r.SecretPrefix, kc.Name)
-		timestamp := time.Now().Format("20060102")
+		timestamp := time.Now().Format("20060102150405") // YYYYMMDDHHMMSS
 		refKey := fmt.Sprintf("%s_%s", ec.Key, timestamp)
 		secretKeyRef := &v1.SecretKeySelector{
 			LocalObjectReference: v1.LocalObjectReference{
@@ -319,6 +321,61 @@ func (r *KconfigReconciler) executeConfigMapActions(ctx context.Context, kc *kco
 	return nil
 }
 
+// Helper function to cleanup stale secret keys when a new key is added
+func secretsGarbageCollection(secret *v1.Secret) {
+	groupedKeys := make(map[string][]struct {
+		key  string
+		date time.Time
+	})
+
+	const dateFormat = "20060102150405"
+	const retainCount = 3 // Set this number to desired unique keys to keep
+
+	for key := range secret.Data {
+		// Check for an underscore in the key
+		lastUnderscoreIndex := strings.LastIndex(key, "_")
+		if lastUnderscoreIndex == -1 {
+			fmt.Printf("Skippping key (%s): doesn't contain an underscore, so no date present\n", key)
+			continue
+		}
+		// Check the key is longer than the date format length
+		const dateFormatLength = len(dateFormat)
+		if len(key) < (dateFormatLength + 1) {
+			fmt.Printf("Skipping key (%s): doesn't fit date format length at the end", key)
+			continue
+		}
+		// Check the date at the end of the key to see if it follows the correct format of YYYYMMDDHHMMSS
+		dateStr := key[len(key)-dateFormatLength:]
+		date, err := time.Parse(dateFormat, dateStr)
+		if err != nil {
+			fmt.Printf("Skipping key (%s): doesn't fit date format of YYYYMMDDHHMMSS\n", key)
+			continue
+		}
+
+		prefix := key[:len(key)-dateFormatLength]
+		fmt.Println(prefix, dateStr)
+
+		groupedKeys[prefix] = append(groupedKeys[prefix], struct {
+			key  string
+			date time.Time
+		}{key: key, date: date})
+	}
+
+	for _, entries := range groupedKeys {
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].date.After(entries[j].date)
+		})
+
+		if len(entries) > retainCount {
+			for i := retainCount; i < len(entries); i++ {
+				oldKey := entries[i].key
+				fmt.Printf("Deleting old key as %d newer entries exist: %s\n", retainCount, oldKey)
+				delete(secret.Data, oldKey)
+			}
+		}
+	}
+}
+
 func (r *KconfigReconciler) executeSecretActions(ctx context.Context, kc *kconfigcontrollerv1beta1.Kconfig, actions []ExternalAction) error {
 	if len(actions) == 0 {
 		return nil
@@ -344,6 +401,8 @@ func (r *KconfigReconciler) executeSecretActions(ctx context.Context, kc *kconfi
 	for _, action := range actions {
 		sec.Data[action.Key] = []byte(action.Value)
 	}
+
+	secretsGarbageCollection(&sec)
 
 	if existing {
 		if err := r.Update(ctx, &sec); err != nil {
